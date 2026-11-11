@@ -2,12 +2,19 @@ import Foundation
 
 struct ReadinessCheck: Encodable {
     enum Status: String, Encodable {
-        case ready, blocked, unchecked
+        case ready, blocked, unchecked, notChecked
     }
 
     let id: String
     let status: Status
     let message: String?
+
+    /// A check AXe deliberately skips on this device. It does not make the device not ready.
+    init(_ id: String, notChecked reason: String) {
+        self.id = id
+        status = .notChecked
+        message = reason
+    }
 
     init(_ id: String, observed: Bool?, fix: String) {
         self.id = id
@@ -30,7 +37,7 @@ struct TargetReadiness: Encodable {
     let udid: String
     let name: String?
     let checks: [ReadinessCheck]
-    var ready: Bool { checks.allSatisfy { $0.status == .ready } }
+    var ready: Bool { checks.allSatisfy { $0.status == .ready || $0.status == .notChecked } }
 
     private enum CodingKeys: String, CodingKey { case target, udid, name, checks, ready }
 
@@ -86,25 +93,32 @@ struct DeviceInspection {
     }
 
     static func inspect(_ listedDevice: CoreDevice) async throws -> Self {
-        let device = try await CoreDeviceInventory.details(for: listedDevice)
+        // `devicectl device info details` waits out its whole timeout on an Apple TV and then fails
+        // with partial data; the list record already carries every field the checks read.
+        let device = listedDevice.isAppleTV ? listedDevice : try await CoreDeviceInventory.details(for: listedDevice)
         var checks = inventoryChecks(for: device)
         let canConnect = checks.allSatisfy { $0.status == .ready }
         var unlocked: Bool?
         var unlockFix = "Unlock the device and keep it awake."
-        if canConnect {
-            do {
-                unlocked = try await CoreDeviceInventory.lockState(for: device).map { !$0 }
-            } catch {
-                try Task.checkCancellation()
-                unlockFix = "AXe could not read the lock state. Unlock the device and run doctor again."
+        if device.isAppleTV {
+            // `devicectl device info lockState` fails on an Apple TV (RSD allocation).
+            checks.append(ReadinessCheck("deviceLocked", notChecked: "AXe does not check the lock state of an Apple TV."))
+        } else {
+            if canConnect {
+                do {
+                    unlocked = try await CoreDeviceInventory.lockState(for: device).map { !$0 }
+                } catch {
+                    try Task.checkCancellation()
+                    unlockFix = "AXe could not read the lock state. Unlock the device and run doctor again."
+                }
             }
+            checks.append(ReadinessCheck("deviceLocked", observed: unlocked, fix: unlockFix))
         }
-        checks.append(ReadinessCheck("deviceLocked", observed: unlocked, fix: unlockFix))
 
         var directory: DeviceServiceDirectory?
         var screenshotAvailable: Bool?
         var serviceFix = "Resolve the other device checks and run doctor again."
-        if canConnect, unlocked == true {
+        if canConnect, unlocked == true || device.isAppleTV {
             if let address = device.tunnelAddress, let udid = device.udid {
                 do {
                     let connection = try await DeviceServiceDirectory.connect(tunnelAddress: address, expectedUDID: udid)

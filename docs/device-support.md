@@ -4,9 +4,9 @@ How AXe drives a connected iPhone or iPad, what it supports and where it stops. 
 
 ## Rules
 
-- `list-devices` also lists paired Apple TVs. AXe only lists them for now; no other command drives one.
+- `list-devices` and `doctor` also accept paired Apple TVs. No other command drives one yet.
 - Devices use the same commands, options and error codes as simulators. `--udid` decides the target: AXe looks the UDID up in the simulator set first, then in CoreDevice's device list, and `targetNotFound` names both.
-- AXe never pairs a device, enables Developer Mode, mounts a developer disk image or unlocks the device. `doctor` detects each of these and prints the fix.
+- AXe never pairs a device, enables Developer Mode, mounts a developer disk image or unlocks the device. `doctor` detects each of these and prints the fix. On an Apple TV, `doctor` reports the lock state as `notChecked`, which does not fail the verdict, because `devicectl` cannot read it.
 - AXe uses the connection that Xcode's CoreDevice manages. It does not create its own tunnel.
 - Anything a device cannot do fails with `unsupportedOnDevice` before any work.
 - Protocol code is written from [device-protocols.md](device-protocols.md) and AXe's own captures, never ported from GPL code (pymobiledevice3).

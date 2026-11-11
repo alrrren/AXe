@@ -1,6 +1,6 @@
 # Physical iPhone and iPad
 
-No agent mode. Every command takes the hardware UDID from `axe list-devices`. `list-devices` also lists paired Apple TVs, but AXe only lists them for now and does not drive them.
+No agent mode. Every command takes the hardware UDID from `axe list-devices`. `list-devices` also lists paired Apple TVs, but AXe only lists them and runs `doctor` on them for now and does not drive them.
 
 ## Readiness
 
@@ -12,7 +12,7 @@ axe describe-ui --udid "$DEVICE_UDID"
 ```
 
 - Pair in Xcode, enable Developer Mode, unlock. AXe does none of these.
-- Resolve every `doctor` check before continuing. A failure ends `Error: <name> is not ready.` with the check's ID as code: `notPaired`, `developerModeDisabled`, `deviceNotConnected`, `developerDiskImageUnavailable`, `deviceLocked`, `screenshotServiceUnavailable`.
+- Resolve every `doctor` check before continuing. A failure ends `Error: <name> is not ready.` with the check's ID as code: `notPaired`, `developerModeDisabled`, `deviceNotConnected`, `developerDiskImageUnavailable`, `deviceLocked`, `screenshotServiceUnavailable`. On an Apple TV, `doctor` reports `deviceLocked` as `notChecked` and does not fail on it.
 - Structured checks: `axe --output json doctor --udid "$DEVICE_UDID"`.
 - Open the saved screenshot to verify what is visible.
 - Error codes match simulators: `busy` (another command on the device), `timeout` (deadline), `cleanupUncertain` (a touch or key may be held); CoreDevice failure is `xcodeUnavailable`, `readFailed` or `timeout`. A failed batch step keeps the step's code.
