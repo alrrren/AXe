@@ -598,7 +598,8 @@
           "enum": [
             "ready",
             "blocked",
-            "unchecked"
+            "unchecked",
+            "notChecked"
           ]
         },
         "message": {
