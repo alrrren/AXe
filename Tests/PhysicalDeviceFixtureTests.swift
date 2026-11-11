@@ -210,6 +210,77 @@ struct CoreDeviceInventoryJSONTests {
         #expect(status("deviceNotConnected", in: unpaired) == .blocked)
         #expect(status("deviceLocked", in: unpaired) == .unchecked)
     }
+
+    /// devicectl's record for a paired Apple TV on the local network (legacy `hardwareProperties` shape).
+    static let appleTVList = #"""
+    {
+      "info": {"jsonVersion": 6, "outcome": "success", "version": "689.2"},
+      "result": {"devices": [
+        {
+          "identifier": "77777777-7777-4777-8777-777777777777",
+          "hardwareProperties": {"udid": "00000007-0000000000000007", "marketingName": "Apple TV 4K (2nd generation)",
+                                 "productType": "AppleTV11,1", "deviceType": "appleTV", "platform": "tvOS",
+                                 "reality": "physical"},
+          "connectionProperties": {"pairingState": "paired", "tunnelState": "disconnected",
+                                   "transportType": "localNetwork"},
+          "deviceProperties": {"name": "Sala", "osVersionNumber": "27.2"}
+        },
+        {
+          "identifier": "88888888-8888-4888-8888-888888888888",
+          "visibilityClass": "simulators",
+          "hardwareProperties": {"productType": "AppleTV11,1", "deviceType": "appleTV", "platform": "tvOS",
+                                 "reality": "simulated"},
+          "connectionProperties": {"pairingState": "paired", "transportType": "sameMachine"},
+          "deviceProperties": {"name": "Apple TV Simulator"}
+        }
+      ]}
+    }
+    """#
+
+    /// A record that names the model only through `productType`, as the iPhone 18,1 record in `currentList` does.
+    static let appleTVProductTypeOnlyList = #"""
+    {
+      "info": {"version": "689.2"},
+      "result": {"devices": [{
+        "identifier": "99999999-9999-4999-8999-999999999999",
+        "properties": {
+          "hardware": {"udid": "00000009-0000000000000009", "productType": "AppleTV11,1", "fidelity": "physical"},
+          "connection": {"pairingState": "paired", "state": "disconnected", "transportType": "localNetwork"},
+          "state": {"name": "Sala"}
+        }
+      }]}
+    }
+    """#
+
+    // User clause: `axe list-devices` lists the paired real Apple TV "Sala"; a tvOS simulator is not a device.
+    @Test("A paired physical Apple TV is listed and a tvOS simulator is not")
+    func appleTV() throws {
+        let list = try devices(Self.appleTVList)
+        #expect(list.map(\.identifier) == ["77777777-7777-4777-8777-777777777777"])
+        let tv = try #require(list.first)
+        #expect(tv.name == "Sala")
+        #expect(tv.model == "Apple TV 4K (2nd generation)")
+        #expect(tv.transport == "localNetwork")
+        #expect(tv.paired == true)
+        #expect(tv.isAppleTV == true)
+    }
+
+    // User clause: the real Apple TV "Sala" is listed, including when a record carries only `productType`.
+    @Test("An Apple TV record that names only its productType is listed")
+    func appleTVProductTypeOnly() throws {
+        let list = try devices(Self.appleTVProductTypeOnlyList)
+        #expect(list.map(\.name) == ["Sala"])
+        #expect(list.first?.isAppleTV == true)
+    }
+
+    // Stage A sends no input to an Apple TV: `AutomationTarget.physicalDeviceRecord` refuses on this flag,
+    // so it must be false for the phones and tablets that commands do drive.
+    @Test("iPhones and iPads are not flagged as an Apple TV")
+    func phonesAreNotAppleTV() throws {
+        let list = try devices(Self.currentList) + devices(Self.legacyList)
+        #expect(list.count == 5)
+        #expect(list.allSatisfy { !$0.isAppleTV })
+    }
 }
 
 // MARK: - RemoteXPC wire
