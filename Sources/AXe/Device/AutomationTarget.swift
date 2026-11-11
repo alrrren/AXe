@@ -44,8 +44,9 @@ enum AutomationTarget {
             throw CLIOutputFailure(code: "targetNotFound",
                 message: "No physical device matches the hardware UDID. Run axe list-devices.")
         }
-        // Every command that sends input or opens a device service looks the device up here, so this is
-        // the one place that keeps an Apple TV, which list-devices shows, from being driven.
+        // The input broker (input and accessibility reads), video recording and streaming, and settings look
+        // the device up here, so this is the one place that keeps an Apple TV, which list-devices shows, from
+        // being driven. doctor and screenshot use `resolve` instead.
         if device.isAppleTV {
             throw unsupportedOnDevice("Apple TV is listed by axe list-devices, but AXe does not drive it yet.")
         }
