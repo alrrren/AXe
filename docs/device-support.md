@@ -4,6 +4,7 @@ How AXe drives a connected iPhone or iPad, what it supports and where it stops. 
 
 ## Rules
 
+- `list-devices` also lists paired Apple TVs. AXe only lists them for now; no other command drives one.
 - Devices use the same commands, options and error codes as simulators. `--udid` decides the target: AXe looks the UDID up in the simulator set first, then in CoreDevice's device list, and `targetNotFound` names both.
 - AXe never pairs a device, enables Developer Mode, mounts a developer disk image or unlocks the device. `doctor` detects each of these and prints the fix.
 - AXe uses the connection that Xcode's CoreDevice manages. It does not create its own tunnel.

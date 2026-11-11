@@ -1,6 +1,6 @@
 # Physical iPhone and iPad
 
-No agent mode. Every command takes the hardware UDID from `axe list-devices`.
+No agent mode. Every command takes the hardware UDID from `axe list-devices`. `list-devices` also lists paired Apple TVs, but AXe only lists them for now and does not drive them.
 
 ## Readiness
 

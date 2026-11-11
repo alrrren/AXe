@@ -264,10 +264,10 @@ private struct DeviceRecord: Decodable {
             return false
         }
         if let family = hardware?.productFamily ?? hardware?.deviceType {
-            return family == "iPhone" || family == "iPad"
+            return family == "iPhone" || family == "iPad" || family == "appleTV"
         }
         guard let product = hardware?.productType else { return false }
-        return product.hasPrefix("iPhone") || product.hasPrefix("iPad")
+        return product.hasPrefix("iPhone") || product.hasPrefix("iPad") || product.hasPrefix("AppleTV")
     }
 
     func device(coreDeviceVersion: String?) -> CoreDevice {
