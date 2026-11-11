@@ -249,7 +249,7 @@ axe tap --udid "$DEVICE_UDID" --id "$ELEMENT_ID" --wait-timeout 15
 axe record-video --udid "$DEVICE_UDID" --fps 3 --scale 0.5 --output device.mp4
 ```
 
-`list-devices` and `doctor` also accept paired Apple TVs; on one, `doctor` reports the lock check as `notChecked`. No other command drives an Apple TV yet.
+`list-devices`, `doctor` and `screenshot` also accept paired Apple TVs; on one, `doctor` reports the lock check as `notChecked`, and a screenshot may render protected video playback as black. No other command drives an Apple TV yet.
 
 Pair the device in Xcode, enable Developer Mode and keep it unlocked; AXe never pairs, enables Developer Mode, mounts disk images or unlocks. `doctor` checks pairing, Developer Mode, connection, developer disk image, lock state and screenshot service, and a failed check ends with `Error: <name> is not ready.` (it also checks that a simulator is booted). Screenshots, video, accessibility reads, `rotate`, taps, swipes, drags, `draw`, gestures, `touch --down --up`, typing, keys, buttons, batches and `settings` (except the status bar) work with the hardware UDID.
 
