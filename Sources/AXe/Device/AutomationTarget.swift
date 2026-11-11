@@ -35,12 +35,14 @@ enum AutomationTarget {
             developerModeEnabled: nil, developerDiskImageMounted: nil, coreDeviceVersion: nil)
     }
 
-    /// The full CoreDevice record for a hardware UDID, read from the inventory.
+    /// The full CoreDevice record for a hardware UDID or a CoreDevice UUID, read from the inventory.
+    /// A UUID has a simulator UUID's shape and devicectl accepts it for any paired device, so only the
+    /// inventory (which lists no simulators) tells them apart: a UUID it does not list returns nil.
     static func physicalDeviceRecord(udid: String) async throws -> CoreDevice? {
-        guard isPhysicalInputUDID(udid) else { return nil }
-        guard let device = try await CoreDeviceInventory.list().first(where: {
-            $0.udid?.caseInsensitiveCompare(udid) == .orderedSame
-        }) else {
+        let isHardwareUDID = isPhysicalInputUDID(udid)
+        guard isHardwareUDID || UUID(uuidString: udid) != nil else { return nil }
+        guard let device = try await CoreDeviceInventory.list().first(where: { $0.matches(udid) }) else {
+            guard isHardwareUDID else { return nil }
             throw CLIOutputFailure(code: "targetNotFound",
                 message: "No physical device matches the hardware UDID. Run axe list-devices.")
         }
