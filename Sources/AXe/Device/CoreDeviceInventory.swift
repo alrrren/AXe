@@ -14,6 +14,7 @@ struct CoreDevice: Sendable {
     let developerModeEnabled: Bool?
     let developerDiskImageMounted: Bool?
     let coreDeviceVersion: String?
+    var isAppleTV = false
 
     func matches(_ target: String) -> Bool {
         identifier.caseInsensitiveCompare(target) == .orderedSame
@@ -258,16 +259,21 @@ private struct DeviceRecord: Decodable {
     private var hardware: Hardware? { properties?.hardware ?? hardwareProperties }
     private var transport: String? { properties?.connection?.transportType ?? connectionProperties?.transportType }
 
+    private var isAppleTV: Bool {
+        if let family = hardware?.productFamily ?? hardware?.deviceType { return family == "appleTV" }
+        return hardware?.productType?.hasPrefix("AppleTV") == true
+    }
+
     var isPhysicalMobileDevice: Bool {
         let fidelity = hardware?.fidelity ?? hardware?.reality
         guard fidelity != "simulated", visibilityClass != "simulators", transport != "sameMachine" else {
             return false
         }
         if let family = hardware?.productFamily ?? hardware?.deviceType {
-            return family == "iPhone" || family == "iPad" || family == "appleTV"
+            return family == "iPhone" || family == "iPad" || isAppleTV
         }
         guard let product = hardware?.productType else { return false }
-        return product.hasPrefix("iPhone") || product.hasPrefix("iPad") || product.hasPrefix("AppleTV")
+        return product.hasPrefix("iPhone") || product.hasPrefix("iPad") || isAppleTV
     }
 
     func device(coreDeviceVersion: String?) -> CoreDevice {
@@ -303,7 +309,8 @@ private struct DeviceRecord: Decodable {
             paired: paired,
             developerModeEnabled: state?.developerModeStatus?.isEnabled ?? deviceProperties?.developerModeStatus?.isEnabled,
             developerDiskImageMounted: state?.areDeveloperDiskImageServicesAvailable ?? deviceProperties?.ddiServicesAvailable,
-            coreDeviceVersion: coreDeviceVersion
+            coreDeviceVersion: coreDeviceVersion,
+            isAppleTV: isAppleTV
         )
     }
 
