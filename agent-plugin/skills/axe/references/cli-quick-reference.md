@@ -122,8 +122,10 @@ axe button lock --duration 3.0 --udid <UDID>    # long press
 axe button side-button --udid <UDID>
 axe button siri --udid <UDID>
 axe button apple-pay --udid <UDID>
+axe button menu --udid <Apple TV UDID>          # also select, up, down, left, right, play-pause
 ```
 
+- Siri Remote buttons (`menu`, `select`, `up`, `down`, `left`, `right`, `play-pause`) work only on an Apple TV, by hardware UDID; `home` works there too. Left, right and play-pause are unconfirmed on a real Apple TV. [physical-device-reference.md](physical-device-reference.md).
 - Acts on the whole device. After Home or any button that changes the foreground app, take a new agent capture before more input.
 - Receipts confirm transport, not Siri, payment UI, secure lock, wake or power. Never replay uncertain input.
 - Display-selected buttons on iPhone Duo: [device-reference.md](device-reference.md#selected-device-buttons).
