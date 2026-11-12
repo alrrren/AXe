@@ -61,11 +61,12 @@ struct AppleTVRemoteButtonTests {
             GateCase(name: "touch", operation: .touch([], display: nil, allowPartial: false, deadlineUptime: nil),
                      accepted: [.phone]),
             // Requirement: B4 text entry, owner decision 2026-11-12. Keyboard input reaches an Apple TV as well.
-            // Touch, display, rotate, tree and semanticPress stay phone-only.
+            // Touch, display, rotate and semanticPress stay phone-only.
             GateCase(name: "keys", operation: .keys([PhysicalKeyStep(code: 4, pressed: true)]),
                      accepted: [.appleTV, .phone]),
             GateCase(name: "rotate", operation: .rotate(.left, timeout: 1), accepted: [.phone]),
-            GateCase(name: "tree", operation: .tree(timeout: 1), accepted: [.phone]),
+            // Requirement: B3a describe-ui on Apple TV, owner decision 2026-11-12.
+            GateCase(name: "tree", operation: .tree(timeout: 1), accepted: [.appleTV, .phone]),
             GateCase(name: "semanticPress", operation: .semanticPress(identifier: "switch"), accepted: [.phone]),
         ]
         cases += remoteButtons.map { GateCase(name: "\($0)", operation: button($0), accepted: [.appleTV]) }
