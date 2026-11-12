@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added Siri Remote buttons for a paired Apple TV: `axe button menu|select|up|down|left|right|play-pause --udid <Apple TV UDID>`, and `button home`. Play-pause is confirmed on a real Apple TV. Other commands still refuse an Apple TV, and the remote buttons are refused on a simulator, iPhone and iPad with `unsupportedOnDevice`. See [Physical iPhone and iPad](README.md#physical-iphone-and-ipad).
 - Added keyboard input for a paired Apple TV: `axe type`, `key`, `key-sequence` and `key-combo` now accept an Apple TV UDID. Keyboard input is confirmed on a real Apple TV. Touches, swipes, display reads and rotation are still refused with `unsupportedOnDevice`.
-- Added `axe describe-ui --udid <Apple TV UDID>`, a read-only read of an Apple TV's accessibility tree. It sends no input and is confirmed on a real Apple TV, but the tree does not yet show which element has focus; `describe-ui --point` is untested there. Touches, swipes, rotation and semantic presses are still refused on an Apple TV.
+- Added `axe describe-ui --udid <Apple TV UDID>`, a read-only read of an Apple TV's accessibility tree. It sends no input and is confirmed on a real Apple TV, where each element includes `focused`, true on the one with focus; `describe-ui --point` is untested there. Touches, swipes, rotation and semantic presses are still refused on an Apple TV.
+- `axe describe-ui` on a physical device now includes `focused` on each element.
 
 ## [v2.0.0]
 

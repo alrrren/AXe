@@ -52,7 +52,7 @@ public enum FBPhysicalAXTreeProjection {
   public static func json(archive: Data, entries: [Entry],
                           forward: ((LiveRequest) throws -> Data)? = nil) throws -> Data {
     try withTree(archive: archive, entries: entries, forward: forward) { element, token in
-      let keys = FBAXKeys.defaultSet.union([.pid, .hidden, .enabled, .frameDict])
+      let keys = FBAXKeys.defaultSet.union([.pid, .hidden, .enabled, .frameDict, .focused])
       let descriptions = try FBSimulatorAccessibilitySerializer.recursiveDescription(
         fromElement: element, token: token, nestedFormat: true, keys: keys,
         collector: nil, coverageGrid: nil, seenPids: nil
