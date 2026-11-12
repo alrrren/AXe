@@ -477,6 +477,33 @@ struct PhysicalDeviceDisplayTests {
         #expect(try display.height == 970)
     }
 
+    // Requirement: B3a describe-ui on Apple TV, owner decision 2026-11-12. Sala live devicectl reply, 2026-11-12:
+    // the only primary display is the external TVOut panel, there is no top-level `orientation`, and the two
+    // wireless displays are not primary.
+    @Test("An Apple TV reply with an external primary display reads as 1920 by 1080")
+    func appleTV() throws {
+        func display(name: String, id: UInt64, primary: Bool, size: Double, height: Double,
+                     scale: RemoteXPCValue) -> RemoteXPCValue {
+            .dictionary([
+                "name": .string(name), "primary": .bool(primary), "external": .bool(true), "displayId": .uint64(id),
+                "nativeOrientation": .string("rot0"), "currentOrientation": .string("rot0"),
+                "currentMode": .dictionary(["size": .array([.double(size), .double(height)]), "preferredUIScale": scale]),
+            ])
+        }
+        let output: [String: RemoteXPCValue] = [
+            "backlightState": .string("activeOn"), "current": .bool(true),
+            "displays": .array([
+                display(name: "TVOut", id: 1, primary: true, size: 1920, height: 1080, scale: .int64(1)),
+                display(name: "Wireless", id: 2, primary: false, size: 1920, height: 1088, scale: .int64(2)),
+                display(name: "Wireless-1", id: 3, primary: false, size: 0, height: 0, scale: .int64(1)),
+            ]),
+        ]
+        let tv = try PhysicalDeviceDisplay(response: ["CoreDevice.output": .dictionary(output)])
+        #expect(try tv.width == 1920)
+        #expect(try tv.height == 1080)
+        #expect(tv.displayID == 1)
+    }
+
     @Test("Points outside the display are refused")
     func outside() throws {
         let display = try Self.iPad("rot90", "portrait")

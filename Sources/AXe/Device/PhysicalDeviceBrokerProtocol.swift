@@ -72,11 +72,11 @@ enum PhysicalDeviceBrokerOperation: Codable, Sendable {
             guard !button.isRemoteOnly else {
                 throw AutomationTarget.unsupportedOnDevice("The \(button.rawValue) button is available on an Apple TV only.")
             }
-        case (.keys, true):
+        case (.keys, true), (.tree, true):
             return
         case (_, true):
             throw AutomationTarget.unsupportedOnDevice(
-                "AXe sends only remote buttons and keyboard input to an Apple TV. Use axe button, type, key, key-sequence or key-combo.")
+                "AXe sends only remote buttons and keyboard input to an Apple TV, and reads its accessibility tree. Use axe button, type, key, key-sequence, key-combo or describe-ui.")
         case (_, false):
             return
         }

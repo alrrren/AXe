@@ -55,7 +55,7 @@ enum AutomationTarget {
         // `allowingAppleTV`, and it then refuses everything but remote buttons and keyboard input. doctor and screenshot use
         // `resolve` instead.
         if device.isAppleTV, !allowingAppleTV {
-            throw unsupportedOnDevice("AXe supports only list-devices, doctor, screenshot, axe button and keyboard input on an Apple TV.")
+            throw unsupportedOnDevice("AXe supports only list-devices, doctor, screenshot, describe-ui, axe button and keyboard input on an Apple TV.")
         }
         return device
     }

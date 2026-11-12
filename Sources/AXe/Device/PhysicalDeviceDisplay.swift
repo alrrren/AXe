@@ -40,9 +40,10 @@ struct PhysicalDeviceDisplay: Codable, Sendable, Equatable {
     init(response: [String: RemoteXPCValue]) throws {
         let output = response["CoreDevice.output"]?.dictionaryValue
         let displays = output?["displays"]?.arrayValue ?? []
-        let primary = displays.compactMap(\.dictionaryValue).filter {
-            $0["primary"] == .bool(true) && $0["external"] == .bool(false)
-        }
+        let panels = displays.compactMap(\.dictionaryValue).filter { $0["primary"] == .bool(true) }
+        // An Apple TV's only primary display is its external TVOut output.
+        let internalPanels = panels.filter { $0["external"] == .bool(false) }
+        let primary = internalPanels.isEmpty ? panels : internalPanels
         guard output?["current"] == .bool(true),
               primary.count == 1, let display = primary.first,
               let native = display["nativeOrientation"]?.stringValue,
