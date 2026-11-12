@@ -62,7 +62,7 @@ actor PhysicalDeviceBrokerOwner {
         if let device {
             listed = device
         } else {
-            guard let found = try await AutomationTarget.physicalDeviceRecord(udid: udid) else {
+            guard let found = try await AutomationTarget.physicalDeviceRecord(udid: udid, allowingAppleTV: true) else {
                 throw PhysicalDeviceBrokerProtocol.unavailable
             }
             device = found
@@ -81,7 +81,9 @@ actor PhysicalDeviceBrokerOwner {
             throw CLIOutputFailure(code: "deviceLocked",
                 message: "The lock button was pressed earlier in this command. Unlock the device before sending more input.")
         }
-        if lockRecheck.needsCheck(at: .now), try await CoreDeviceInventory.lockState(for: device) != false {
+        // `devicectl` cannot read an Apple TV's lock state.
+        if !device.isAppleTV, lockRecheck.needsCheck(at: .now),
+           try await CoreDeviceInventory.lockState(for: device) != false {
             throw CLIOutputFailure(code: "deviceLocked", message: "Unlock the device before sending input or reading its screen.")
         }
     }
@@ -98,6 +100,7 @@ actor PhysicalDeviceBrokerOwner {
             throw CLIOutputFailure(code: "deviceBrokerUnavailable", message: "The broker has no ready device session.")
         }
         do {
+            try operation.requireSupported(onAppleTV: device.isAppleTV)
             try await admitInput(operation, on: device)
             let value = try await perform(operation, on: input)
             recordInput(operation)

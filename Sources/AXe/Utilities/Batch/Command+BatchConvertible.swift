@@ -225,7 +225,7 @@ extension Button: BatchConvertible {
     var batchInputMode: SimulatorInputMode { selectedInput.mode }
 
     func toBatchPrimitives(context: BatchContext, logger: AxeLogger) async throws -> [BatchPrimitive] {
-        [.hidMergeable(hidEvent)]
+        [.hidMergeable(try hidEvent)]
     }
 }
 

@@ -25,10 +25,35 @@ struct PhysicalKeyStep: Codable, Sendable {
 
 enum PhysicalRotationDirection: String, Codable, Sendable { case left, right }
 
-enum PhysicalDeviceButton: UInt64, Codable, Sendable {
-    case home = 0x40
-    case lock = 0x30
-    case siri = 0xCF
+enum PhysicalDeviceButton: String, Codable, Sendable {
+    case home, lock, siri
+    case menu, select, up, down, left, right, playPause
+
+    /// The Siri Remote buttons, which exist on an Apple TV only.
+    var isRemoteOnly: Bool {
+        switch self {
+        case .home, .lock, .siri: false
+        case .menu, .select, .up, .down, .left, .right, .playPause: true
+        }
+    }
+
+    var worksOnAppleTV: Bool { self == .home || isRemoteOnly }
+
+    /// Left, Right and Play/Pause are not live-confirmed on an Apple TV.
+    var usage: (page: UInt64, code: UInt64) {
+        switch self {
+        case .home: (0x0C, 0x40)
+        case .lock: (0x0C, 0x30)
+        case .siri: (0x0C, 0xCF)
+        case .menu: (0x01, 0x86)
+        case .select: (0x01, 0x89)
+        case .up: (0x01, 0x8C)
+        case .down: (0x01, 0x8D)
+        case .left: (0x01, 0x8B)
+        case .right: (0x01, 0x8A)
+        case .playPause: (0x0C, 0xCD)
+        }
+    }
 }
 
 /// Holds one RSD and HID session and owns every contact and key it starts.
@@ -59,11 +84,12 @@ actor PhysicalDeviceInputOwner {
     /// Fresh CoreDevice details for a listed device, refusing unless every readiness check passes and it is
     /// unlocked. Input leases and the native display stream use it.
     static func readyDevice(_ listedDevice: CoreDevice) async throws -> CoreDevice {
-        let device = try await CoreDeviceInventory.details(for: listedDevice)
+        // `devicectl` details and lockState both fail on an Apple TV (see `DeviceInspection.inspect`).
+        let device = listedDevice.isAppleTV ? listedDevice : try await CoreDeviceInventory.details(for: listedDevice)
         if let check = DeviceInspection.inventoryChecks(for: device).first(where: { $0.status != .ready }) {
             throw CLIOutputFailure(code: check.id, message: check.message ?? "The device is not ready.")
         }
-        guard try await CoreDeviceInventory.lockState(for: device) == false else {
+        if !device.isAppleTV, try await CoreDeviceInventory.lockState(for: device) != false {
             throw CLIOutputFailure(code: "deviceLocked", message: "Unlock the device before sending input or reading its screen.")
         }
         return device
@@ -380,7 +406,8 @@ actor PhysicalDeviceInputOwner {
 
     private static func buttonMessage(_ button: PhysicalDeviceButton, pressed: Bool) -> [String: RemoteXPCValue] {
         hidMessage("IndigoButtonEvent", feature: "button", payload: [
-            "usagePage": .uint64(0x0C), "usageCode": .uint64(button.rawValue), "state": .uint64(pressed ? 1 : 2),
+            "usagePage": .uint64(button.usage.page), "usageCode": .uint64(button.usage.code),
+            "state": .uint64(pressed ? 1 : 2),
         ])
     }
 

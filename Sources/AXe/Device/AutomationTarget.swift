@@ -38,7 +38,7 @@ enum AutomationTarget {
     /// The full CoreDevice record for a hardware UDID or a CoreDevice UUID, read from the inventory.
     /// A UUID has a simulator UUID's shape and devicectl accepts it for any paired device, so only the
     /// inventory (which lists no simulators) tells them apart: a UUID it does not list returns nil.
-    static func physicalDeviceRecord(udid: String) async throws -> CoreDevice? {
+    static func physicalDeviceRecord(udid: String, allowingAppleTV: Bool = false) async throws -> CoreDevice? {
         let isHardwareUDID = isPhysicalInputUDID(udid)
         let uuid = UUID(uuidString: udid)
         guard isHardwareUDID || uuid != nil else { return nil }
@@ -50,11 +50,12 @@ enum AutomationTarget {
             throw CLIOutputFailure(code: "targetNotFound",
                 message: "No physical device matches the hardware UDID. Run axe list-devices.")
         }
-        // The input broker (input and accessibility reads), video recording and streaming, and settings look
-        // the device up here, so this is the one place that keeps an Apple TV, which list-devices shows, from
-        // being driven. doctor and screenshot use `resolve` instead.
-        if device.isAppleTV {
-            throw unsupportedOnDevice("Apple TV is listed by axe list-devices, but AXe does not drive it yet.")
+        // The input broker, video recording and streaming, and settings look the device up here, so this is the
+        // one place that keeps an Apple TV, which list-devices shows, from being driven. Only the broker passes
+        // `allowingAppleTV`, and it then refuses everything but remote buttons. doctor and screenshot use
+        // `resolve` instead.
+        if device.isAppleTV, !allowingAppleTV {
+            throw unsupportedOnDevice("AXe supports only list-devices, doctor, screenshot and axe button on an Apple TV.")
         }
         return device
     }

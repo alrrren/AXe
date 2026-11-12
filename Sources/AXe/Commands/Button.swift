@@ -9,22 +9,43 @@ enum ButtonType: String, CaseIterable, ExpressibleByArgument {
     case lock = "lock"
     case sideButton = "side-button"
     case siri = "siri"
-    
-    var hidButton: FBSimulatorHIDButton {
+    case menu = "menu"
+    case select = "select"
+    case up = "up"
+    case down = "down"
+    case left = "left"
+    case right = "right"
+    case playPause = "play-pause"
+
+    /// The Siri Remote buttons, which exist on an Apple TV only.
+    var isRemote: Bool {
         switch self {
-        case .applePay:
-            return FBSimulatorHIDButton(rawValue: 1)! // FBSimulatorHIDButtonApplePay
-        case .home:
-            return FBSimulatorHIDButton(rawValue: 2)! // FBSimulatorHIDButtonHomeButton
-        case .lock:
-            return FBSimulatorHIDButton(rawValue: 3)! // FBSimulatorHIDButtonLock
-        case .sideButton:
-            return FBSimulatorHIDButton(rawValue: 4)! // FBSimulatorHIDButtonSideButton
-        case .siri:
-            return FBSimulatorHIDButton(rawValue: 5)! // FBSimulatorHIDButtonSiri
+        case .menu, .select, .up, .down, .left, .right, .playPause: true
+        case .applePay, .home, .lock, .sideButton, .siri: false
         }
     }
-    
+
+    var hidButton: FBSimulatorHIDButton {
+        get throws {
+            switch self {
+            case .applePay:
+                return FBSimulatorHIDButton(rawValue: 1)! // FBSimulatorHIDButtonApplePay
+            case .home:
+                return FBSimulatorHIDButton(rawValue: 2)! // FBSimulatorHIDButtonHomeButton
+            case .lock:
+                return FBSimulatorHIDButton(rawValue: 3)! // FBSimulatorHIDButtonLock
+            case .sideButton:
+                return FBSimulatorHIDButton(rawValue: 4)! // FBSimulatorHIDButtonSideButton
+            case .siri:
+                return FBSimulatorHIDButton(rawValue: 5)! // FBSimulatorHIDButtonSiri
+            case .menu, .select, .up, .down, .left, .right, .playPause:
+                throw AutomationTarget.unsupportedOnDevice(
+                    "The \(rawValue) button works only on an Apple TV, named by its hardware UDID from axe list-devices.")
+            }
+        }
+    }
+
+
     var description: String {
         switch self {
         case .applePay:
@@ -37,6 +58,20 @@ enum ButtonType: String, CaseIterable, ExpressibleByArgument {
             return "Side button"
         case .siri:
             return "Siri button"
+        case .menu:
+            return "Menu button"
+        case .select:
+            return "Select button"
+        case .up:
+            return "Up button"
+        case .down:
+            return "Down button"
+        case .left:
+            return "Left button"
+        case .right:
+            return "Right button"
+        case .playPause:
+            return "Play/Pause button"
         }
     }
 }
@@ -46,11 +81,14 @@ struct Button: PhysicalDeviceCommand {
         abstract: "Press a hardware button.",
         discussion: """
         Physical devices support home, siri and lock; lock needs --allow-lock, and you must unlock the device yourself.
+        An Apple TV supports home, menu, select, up, down, left, right and play-pause. Left, right and play-pause are
+        unconfirmed on a real Apple TV. The remote buttons work only on an Apple TV.
 
         Examples:
           axe button home --udid <UDID>
           axe button lock --duration 2 --udid <UDID>
           axe button siri --udid <UDID>
+          axe button menu --udid <Apple TV UDID>
         """
     )
     
@@ -78,8 +116,12 @@ struct Button: PhysicalDeviceCommand {
         if allowLock, buttonType != .lock || !AutomationTarget.isPhysicalInputUDID(simulatorUDID) {
             throw ValidationError("--allow-lock requires the lock button and a physical device UDID.")
         }
+        // A simulator has no remote; refuse before any simulator work. A phone or tablet is refused by the broker.
+        if buttonType.isRemote, !AutomationTarget.isPhysicalInputUDID(simulatorUDID) {
+            _ = try buttonType.hidButton
+        }
         if selectedInput.mode == .selected {
-            try selectedButtonPayload.validate()
+            try selectedButtonPayload().validate()
         } else if expectedBoot != nil {
             throw ValidationError("--expected-boot requires a selected hardware button.")
         }
@@ -96,12 +138,12 @@ struct Button: PhysicalDeviceCommand {
 
     func selectedRequest() throws -> SelectedHIDRequest {
         try validate()
-        let request = try selectedInput.baseRequest(payload: .button(selectedButtonPayload))
+        let request = try selectedInput.baseRequest(payload: .button(try selectedButtonPayload()))
         try request.validate()
         return request
     }
 
-    private var selectedButtonPayload: SelectedButtonRequest {
+    private func selectedButtonPayload() throws -> SelectedButtonRequest {
         let kind: SelectedButtonRequest.Kind
         switch buttonType {
         case .home: kind = .home
@@ -109,15 +151,20 @@ struct Button: PhysicalDeviceCommand {
         case .siri: kind = .siri
         case .lock: kind = .lock
         case .applePay: kind = .applePay
+        case .menu, .select, .up, .down, .left, .right, .playPause:
+            throw AutomationTarget.unsupportedOnDevice("Remote buttons do not support selected display options.")
         }
         return SelectedButtonRequest(kind: kind, duration: duration, expectedBoot: expectedBoot)
     }
 
     /// The ordinary button event, for the standalone command and batch steps.
     var hidEvent: FBSimulatorHIDEvent {
-        guard let duration else { return .shortButtonPress(buttonType.hidButton) }
-        return .composite([.button(direction: .down, button: buttonType.hidButton), .delay(duration),
-            .button(direction: .up, button: buttonType.hidButton)])
+        get throws {
+            let button = try buttonType.hidButton
+            guard let duration else { return .shortButtonPress(button) }
+            return .composite([.button(direction: .down, button: button), .delay(duration),
+                .button(direction: .up, button: button)])
+        }
     }
 
     private func physicalButtonTarget() throws -> PhysicalDeviceButton {
@@ -133,6 +180,13 @@ struct Button: PhysicalDeviceCommand {
                 throw AutomationTarget.unsupportedOnDevice("Physical lock requires --allow-lock. You must unlock the device yourself.")
             }
             button = .lock
+        case .menu: button = .menu
+        case .select: button = .select
+        case .up: button = .up
+        case .down: button = .down
+        case .left: button = .left
+        case .right: button = .right
+        case .playPause: button = .playPause
         case .sideButton, .applePay:
             throw AutomationTarget.unsupportedOnDevice("This button is not available on physical devices.")
         }
@@ -164,7 +218,7 @@ struct Button: PhysicalDeviceCommand {
             logger.info().log("Duration: \(duration) seconds")
         }
 
-        try await HIDInteractor.performHIDEvent(hidEvent, for: simulatorUDID, logger: logger)
+        try await HIDInteractor.performHIDEvent(try hidEvent, for: simulatorUDID, logger: logger)
         logger.info().log("\(buttonType.description) press completed successfully")
     }
 } 

@@ -58,6 +58,27 @@ enum PhysicalDeviceBrokerOperation: Codable, Sendable {
         guard duration.isFinite, (0...60).contains(duration) else { throw Self.invalidOperation }
     }
 
+    /// What the device family accepts. An Apple TV takes remote buttons only, and a phone or tablet has no
+    /// remote buttons. The broker calls this before any HID connection or event.
+    func requireSupported(onAppleTV: Bool) throws {
+        switch (self, onAppleTV) {
+        case (.keepAlive, _):
+            return
+        case let (.button(button, _, _), true):
+            guard button.worksOnAppleTV else {
+                throw AutomationTarget.unsupportedOnDevice("The \(button.rawValue) button is not available on an Apple TV.")
+            }
+        case let (.button(button, _, _), false):
+            guard !button.isRemoteOnly else {
+                throw AutomationTarget.unsupportedOnDevice("The \(button.rawValue) button is available on an Apple TV only.")
+            }
+        case (_, true):
+            throw AutomationTarget.unsupportedOnDevice("AXe sends only remote buttons to an Apple TV. Use axe button.")
+        case (_, false):
+            return
+        }
+    }
+
     private static var invalidOperation: CLIOutputFailure {
         CLIOutputFailure(code: "invalidArguments", message: "The device broker operation exceeds its input limits.")
     }
