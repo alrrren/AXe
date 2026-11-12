@@ -41,7 +41,7 @@ enum PhysicalDeviceButton: String, Codable, Sendable {
 
     var worksOnAppleTV: Bool { self == .home || isRemoteOnly }
 
-    /// Left, Right and Play/Pause are not live-confirmed on an Apple TV.
+    /// Play/Pause is not live-confirmed on an Apple TV.
     var usage: (page: UInt64, code: UInt64) {
         switch self {
         case .home: (0x0C, 0x40)

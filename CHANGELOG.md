@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added Siri Remote buttons for a paired Apple TV: `axe button menu|select|up|down|left|right|play-pause --udid <Apple TV UDID>`, and `button home`. Left, right and play-pause are unconfirmed on a real Apple TV. Every other command still refuses an Apple TV, and the remote buttons are refused on a simulator, iPhone and iPad with `unsupportedOnDevice`. See [Physical iPhone and iPad](README.md#physical-iphone-and-ipad).
+- Added Siri Remote buttons for a paired Apple TV: `axe button menu|select|up|down|left|right|play-pause --udid <Apple TV UDID>`, and `button home`. Play-pause is unconfirmed on a real Apple TV. Every other command still refuses an Apple TV, and the remote buttons are refused on a simulator, iPhone and iPad with `unsupportedOnDevice`. See [Physical iPhone and iPad](README.md#physical-iphone-and-ipad).
 
 ## [v2.0.0]
 
