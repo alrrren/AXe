@@ -5,6 +5,12 @@ All notable changes to the AXe iOS testing framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added Siri Remote buttons for a paired Apple TV: `axe button menu|select|up|down|left|right|play-pause --udid <Apple TV UDID>`, and `button home`. Play-pause is unconfirmed on a real Apple TV. Every other command still refuses an Apple TV, and the remote buttons are refused on a simulator, iPhone and iPad with `unsupportedOnDevice`. See [Physical iPhone and iPad](README.md#physical-iphone-and-ipad).
+
 ## [v2.0.0]
 
 ### Physical iPhone and iPad support

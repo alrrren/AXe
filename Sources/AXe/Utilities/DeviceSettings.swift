@@ -324,10 +324,10 @@ enum DeviceSettings {
     static let unsupportedXcode = "Select Xcode 27 or later with xcode-select or DEVELOPER_DIR."
 
     /// Checks the target and returns the identifier to pass to devicectl. A simulator's readiness is
-    /// checked by devicectl itself; a physical device goes through the inventory readiness checks.
+    /// checked by devicectl itself; a physical device, named by hardware UDID or CoreDevice UUID, goes
+    /// through the inventory readiness checks.
     static func prepare(udid: String) async throws -> String {
         let udid = udid.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard AutomationTarget.isPhysicalInputUDID(udid) else { return udid }
         guard let listed = try await AutomationTarget.physicalDeviceRecord(udid: udid) else { return udid }
         let device = try await CoreDeviceInventory.details(for: listed)
         if let check = DeviceInspection.inventoryChecks(for: device).first(where: { $0.status != .ready }) {
