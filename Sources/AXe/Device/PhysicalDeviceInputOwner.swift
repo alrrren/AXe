@@ -27,7 +27,9 @@ enum PhysicalRotationDirection: String, Codable, Sendable { case left, right }
 
 enum PhysicalDeviceButton: String, Codable, Sendable {
     case home, lock, siri
-    case menu, select, up, down, left, right, playPause
+    case menu, select, up, down, left, right
+    // The raw value appears in refusal messages, so it uses the spelling `axe button` takes.
+    case playPause = "play-pause"
 
     /// The Siri Remote buttons, which exist on an Apple TV only.
     var isRemoteOnly: Bool {
