@@ -86,8 +86,19 @@ actor PhysicalDeviceInputOwner {
     /// Fresh CoreDevice details for a listed device, refusing unless every readiness check passes and it is
     /// unlocked. Input leases and the native display stream use it.
     static func readyDevice(_ listedDevice: CoreDevice) async throws -> CoreDevice {
-        // `devicectl` details and lockState both fail on an Apple TV (see `DeviceInspection.inspect`).
-        let device = listedDevice.isAppleTV ? listedDevice : try await CoreDeviceInventory.details(for: listedDevice)
+        let device: CoreDevice
+        if listedDevice.isAppleTV {
+            // `devicectl` details and lockState both fail on an Apple TV (see `DeviceInspection.inspect`), so the
+            // list is the only fresh source. The caller's record can predate a tunnel or disk-image change.
+            let target = listedDevice.udid ?? listedDevice.identifier
+            guard let current = try await CoreDeviceInventory.list().first(where: { $0.matches(target) }) else {
+                throw CLIOutputFailure(code: "targetNotFound",
+                    message: "No physical device matches the hardware UDID. Run axe list-devices.")
+            }
+            device = current
+        } else {
+            device = try await CoreDeviceInventory.details(for: listedDevice)
+        }
         if let check = DeviceInspection.inventoryChecks(for: device).first(where: { $0.status != .ready }) {
             throw CLIOutputFailure(code: check.id, message: check.message ?? "The device is not ready.")
         }
