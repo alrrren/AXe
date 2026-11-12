@@ -122,6 +122,19 @@ struct OutputPayloadSchemaTests {
         #expect(try !OutputSchemas.validatePayload(command: "shutdown", result: .object(fields)).isEmpty)
     }
 
+    // Review round 1 defect: the schema enum lacked `notChecked`, so a schema-validating consumer
+    // rejected the real Apple TV doctor JSON.
+    @Test("An Apple TV doctor payload with the lock check not checked matches the schema")
+    func appleTVDoctorPayloadMatches() throws {
+        let readiness = TargetReadiness(target: "device", udid: "00008110-001A2B3C4D5E", name: "Living Room",
+            checks: [ReadinessCheck("notPaired", observed: true, fix: "Pair the device."),
+                     ReadinessCheck("deviceLocked", notChecked: "AXe does not check the lock state of an Apple TV."),
+                     ReadinessCheck("screenshotServiceUnavailable", observed: true, fix: "Check screenshot access.")])
+        let result = try OutputSchemaJSON(json: JSONEncoder().encode(readiness))
+        #expect(result["checks"]?.arrayValue?.compactMap { $0["status"]?.stringValue }.contains("notChecked") == true)
+        #expect(try OutputSchemas.validatePayload(command: "doctor", result: result).isEmpty)
+    }
+
     private func encode<Value: Encodable>(_ value: Value) throws -> CLIOutputValue {
         try JSONDecoder().decode(CLIOutputValue.self, from: JSONEncoder().encode(value))
     }

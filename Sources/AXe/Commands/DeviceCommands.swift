@@ -2,7 +2,7 @@ import ArgumentParser
 import FBControlCore
 
 struct ListDevices: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(abstract: "List the physical iPhones and iPads that Xcode knows, with any readiness problems.")
+    static let configuration = CommandConfiguration(abstract: "List the physical iPhones, iPads and Apple TVs that Xcode knows, with any readiness problems.")
 
     func run() async throws {
         let devices = try await CoreDeviceInventory.list()
@@ -14,7 +14,7 @@ struct ListDevices: AsyncParsableCommand {
             return
         }
         if devices.isEmpty {
-            CLIOutput.message("No physical iPhones or iPads found.")
+            CLIOutput.message("No physical iPhones, iPads or Apple TVs found.")
         }
         for device in devices {
             let description = [device.name ?? "iOS Device", device.model, device.osVersion]
