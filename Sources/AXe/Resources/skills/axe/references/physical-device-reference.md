@@ -1,6 +1,6 @@
 # Physical iPhone and iPad
 
-No agent mode. Every command takes the hardware UDID from `axe list-devices`. `list-devices` also lists paired Apple TVs, but AXe only lists them, runs `doctor` and `screenshot` on them, and presses their Siri Remote buttons: `axe button home|menu|select|up|down|left|right|play-pause --udid "$TV_UDID"`. Every other command, and `button lock` and `siri`, fails on an Apple TV with `unsupportedOnDevice`; the remote buttons fail the same way on a simulator, iPhone and iPad. Play-pause is unconfirmed on a real Apple TV; check the screen after pressing. A screenshot of an Apple TV may render protected video playback as black; check the saved image.
+No agent mode. Every command takes the hardware UDID from `axe list-devices`. `list-devices` also lists paired Apple TVs, but AXe only lists them, runs `doctor` and `screenshot` on them, presses their Siri Remote buttons: `axe button home|menu|select|up|down|left|right|play-pause --udid "$TV_UDID"`, and sends keyboard input with `type`, `key`, `key-sequence` and `key-combo`. Every other command, and `button lock` and `siri`, fails on an Apple TV with `unsupportedOnDevice`; the remote buttons fail the same way on a simulator, iPhone and iPad. Play-pause and keyboard input are unconfirmed on a real Apple TV until a live check; check the screen after sending them. A screenshot of an Apple TV may render protected video playback as black; check the saved image.
 
 ## Readiness
 
