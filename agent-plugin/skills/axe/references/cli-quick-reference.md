@@ -11,6 +11,8 @@ No UI target, so no `--agent`; app reads and input use the agent commands in SKI
 - [Screenshot](#screenshot)
 - [Video recording](#video-recording)
 - [Video streaming](#video-streaming)
+- [Faster plain reads](#faster-plain-reads)
+- [Serve](#serve)
 - [Clipboard staging](#clipboard-staging)
 - [Gestures and drawing](#gestures-and-drawing)
 - [Apple TV semantic press](#apple-tv-semantic-press)
@@ -95,6 +97,28 @@ printf '%s' 'AXe sample' | axe clipboard copy --stdin --udid <UDID>
 - Stages 1...65536 valid UTF-8 bytes, with exact private CoreDevice readback. JSON: hash/length, `verified: true`, `inserted: false`; it never inserts text.
 - Replaces a shared clipboard. No agent/selected/batch options, automatic Paste, restore or retry.
 - Preserve failures. Get fresh UI refs and verify app insertion separately. [clipboard-reference.md](clipboard-reference.md).
+
+## Faster plain reads
+
+```bash
+axe describe-ui --minimal-keys --udid <UDID>
+```
+
+- Plain `describe-ui` only: the full tree as JSON, with just label, identifier, value, frame, role, role description, type and enabled state (and an empty `traits` list). Faster to read.
+- Refused with `--agent` or selected input, and on a physical device. Agent captures are already compact.
+
+## Serve
+
+```bash
+printf 'describe-ui --minimal-keys\ntap --label General\nping\n' | axe serve --udid <UDID>
+```
+
+- For a script that sends many commands: one process per simulator, so each command skips startup and the simulator lookup.
+- Simulators only; a physical UDID is refused. `--udid` is for `serve`, not for the lines.
+- One command per standard input line, as typed after `axe` without `--udid`. Blank lines and lines starting with `#` are skipped.
+- Prints a ready line first, then one JSON line per command, in order: what `axe --output json <command>` prints. A refused or failed line gets its error line and serve carries on. Exits when standard input closes; logs go to standard error.
+- Commands: `describe-ui`, `displays`, `screenshot`, `tap`, `swipe`, `drag`, `draw`, `type`, `button`, `key`, `key-sequence`, `key-combo`, `touch`, `gesture`, `slider`, `rotate`, `hinge`; `ping` answers `{"pong": true}` data without touching the simulator. Others (`batch`, `record-video`, `stream-video`) are refused.
+- A line with `--udid` or `--stdin` is refused; pass text as an argument or `--file`.
 
 ## Gestures and drawing
 

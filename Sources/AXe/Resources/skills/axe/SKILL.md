@@ -135,6 +135,6 @@ Agent mode covers app reads and input on every simulator, including the iPhone D
 | work on a physical iPhone or iPad (no agent mode) | [physical-device-reference.md](references/physical-device-reference.md) |
 | use iPhone Duo screens, hinge and rotation, or pin capture or input to one display | [device-reference.md](references/device-reference.md) |
 | set dark mode, text size, accessibility display settings, VoiceOver, location or status bar | [settings-reference.md](references/settings-reference.md) |
-| run a command with no UI target (`list-simulators`, `displays`, `screenshot`, `button`, `shutdown`) or a gesture with no agent form | [cli-quick-reference.md](references/cli-quick-reference.md) |
+| run a command with no UI target (`list-simulators`, `displays`, `screenshot`, `button`, `shutdown`), a gesture with no agent form, `describe-ui --minimal-keys` or `serve` for scripts | [cli-quick-reference.md](references/cli-quick-reference.md) |
 | record or stream video | [recording-reference.md](references/recording-reference.md) |
 | stage text on the clipboard | [clipboard-reference.md](references/clipboard-reference.md) |
