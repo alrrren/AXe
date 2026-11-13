@@ -1,6 +1,6 @@
 ---
 name: axe
-description: Official skill for the AXe CLI, which gives agents eyes and hands on iOS apps. Sees and operates app UI, takes screenshots and changes device settings on iOS Simulators and physical iPhones and iPads. Use when checking, testing or validating an iOS app after building or changing it, or whenever an iOS app's screen needs to be seen or driven.
+description: Official skill for the AXe CLI, which gives agents eyes and hands on iOS and tvOS apps. Sees and operates app UI, takes screenshots, records video and changes simulator settings on iOS Simulators and on physical iPhones, iPads and Apple TVs. Use when the target is any physical device, and always for a physical Apple TV, which no other tool drives. Also use it on a simulator when no Xcode device session is open. For the app you just built and ran from Xcode, use the device-interaction skill instead, because it runs inside Xcode's own session.
 ---
 
 # AXe

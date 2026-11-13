@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `axe tap --semantic-press` on a physical Apple TV with a unique exact `--label` or `--id`. It sends AXPress once and reports `accepted` only after the matching DTX acknowledgement and successful native reply, without claiming a screen change. iPhone/iPad checkbox readback is unchanged.
 
 ### Changed
+- The AXe skill's description now says when to pick AXe over Xcode's device-interaction skill: AXe for any physical device, always for an Apple TV, and for a simulator with no Xcode session; device-interaction for an app just built and run from Xcode.
 - `axe --output json describe-ui` now takes as long as plain `describe-ui`, about 45 ms less on a Settings screen, with the same output.
 
 ### Fixed
