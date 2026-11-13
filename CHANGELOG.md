@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added keyboard input for a paired Apple TV: `axe type`, `key`, `key-sequence` and `key-combo` now accept an Apple TV UDID. Keyboard input is confirmed on a real Apple TV. Touches, swipes, display reads and rotation are still refused with `unsupportedOnDevice`.
 - Added `axe describe-ui --udid <Apple TV UDID>`, a read-only read of an Apple TV's accessibility tree. It sends no input and is confirmed on a real Apple TV, where each element includes `focused`, true on the one with focus and following the Siri Remote focus; `describe-ui --point` works there too. Touches, swipes, rotation and semantic presses are still refused on an Apple TV.
 - `axe describe-ui` on a physical device now includes `focused` on each element.
-- `axe record-video` and `axe stream-video` (`mjpeg`, `raw`, `ffmpeg`, `bgra`) now accept an Apple TV UDID. They read the screen the way `screenshot` does and send no input. They are not yet confirmed on a real Apple TV. `stream-video --format h264` is still refused on an Apple TV with `unsupportedOnDevice`.
+- `axe record-video` and `axe stream-video` (`mjpeg`, `raw`, `ffmpeg`, `bgra`) now accept an Apple TV UDID. They read the screen the way `screenshot` does and send no input. They are confirmed on a real Apple TV, where they ran at about 1–1.5 fps because each frame is a screenshot. `stream-video --format h264` is still refused on an Apple TV with `unsupportedOnDevice`.
 
 ### Changed
 - `axe --output json describe-ui` now takes as long as plain `describe-ui`, about 45 ms less on a Settings screen, with the same output.
