@@ -9,8 +9,8 @@ struct PhysicalAccessibilitySnapshot: Sendable {
 
 struct PhysicalSemanticPressReceipt: Codable, Sendable {
     let identifier: String
-    let stateBefore: Bool
-    let stateAfter: Bool
+    let stateBefore: Bool?
+    let stateAfter: Bool?
     let readbackCount: Int
     let outcome: String
     let delivery: String

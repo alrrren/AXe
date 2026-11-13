@@ -374,6 +374,17 @@
               "type": "boolean"
             }
           }
+        },
+        {
+          "description": "Apple TV semantic press accepted by the native service; no UI effect is verified.",
+          "type": "object",
+          "required": ["identifier", "outcome", "delivery", "readbackCount"],
+          "properties": {
+            "identifier": { "type": "string" },
+            "outcome": { "const": "accepted" },
+            "delivery": { "const": "nativeReplyAccepted" },
+            "readbackCount": { "const": 0 }
+          }
         }
       ]
     },

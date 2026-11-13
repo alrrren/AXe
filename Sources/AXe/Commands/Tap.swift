@@ -19,7 +19,7 @@ struct Tap: PhysicalDeviceCommand {
         """
     )
 
-    @Flag(name: .customLong("semantic-press"), help: "Press the native CheckBox with this --id through accessibility and confirm its value changed. Simulators need --input-mode selected.")
+    @Flag(name: .customLong("semantic-press"), help: "Press through accessibility: confirm a CheckBox value change by --id, or report acceptance on Apple TV by unique --id or exact --label. Simulators need --input-mode selected.")
     var semanticPress = false
 
     @Option(name: .customShort("x"), help: "X coordinate of the tap in points.")
@@ -145,7 +145,7 @@ struct Tap: PhysicalDeviceCommand {
         if AutomationTarget.isPhysicalInputUDID(simulatorUDID) {
             if hasSimulatorOnlyOptions || (!semanticPress && tapStyle == .simulator) { return }
             if semanticPress {
-                _ = try physicalSemanticIdentifier()
+                _ = try physicalSemanticSelector()
                 return
             }
         }
@@ -361,19 +361,19 @@ struct Tap: PhysicalDeviceCommand {
             || labelContains != nil || labelRegex != nil || selectorFrame != nil
     }
 
-    private func physicalSemanticIdentifier() throws -> String {
+    private func physicalSemanticSelector() throws -> PhysicalSemanticPressSelector {
         guard !hasSimulatorOnlyOptions else {
             throw AutomationTarget.unsupportedOnDevice("Physical semantic press does not accept agent mode or simulator display and process options.")
         }
-        // The broker validates the identifier itself.
-        guard let elementID else {
-            throw ValidationError("Physical --semantic-press requires one exact --id.")
+        // The broker validates the selector and device family.
+        guard (elementID != nil) != (elementLabel != nil) else {
+            throw ValidationError("Physical --semantic-press requires one exact --id, or --label on Apple TV.")
         }
-        guard pointX == nil, pointY == nil, elementLabel == nil, elementValue == nil, elementType == nil,
+        guard pointX == nil, pointY == nil, elementValue == nil, elementType == nil,
               tapStyle == nil, preDelay == nil, postDelay == nil, waitTimeout == 0, pollInterval == nil else {
-            throw ValidationError("Physical --semantic-press accepts only --id and --udid. Remove coordinates, other selectors, style, delays and polling.")
+            throw ValidationError("Physical --semantic-press accepts only one --id or --label and --udid. Remove coordinates, other selectors, style, delays and polling.")
         }
-        return elementID
+        return elementID.map { .id($0) } ?? .label(elementLabel!)
     }
 
     private func validateDeviceTapOptions() throws {
@@ -397,16 +397,16 @@ struct Tap: PhysicalDeviceCommand {
     /// A semantic press runs only as a standalone command.
     func validateOnDevice(inBatch: Bool) throws {
         if semanticPress, !inBatch {
-            _ = try physicalSemanticIdentifier()
+            _ = try physicalSemanticSelector()
         } else {
             try validateDeviceTapOptions()
         }
     }
 
-    /// Returns the receipt of a semantic press, which the broker returns only for a confirmed value change.
+    /// Returns the receipt of a semantic press, for a confirmed checkbox value change or an accepted TV press.
     func runOnDevice(_ input: PhysicalDeviceInput) async throws -> PhysicalSemanticPressReceipt? {
         if semanticPress {
-            return try await input.semanticPress(identifier: physicalSemanticIdentifier())
+            return try await input.semanticPress(selector: physicalSemanticSelector())
         }
         if let preDelay { try await Task.sleep(for: .seconds(preDelay)) }
         if let pointX, let pointY {
@@ -431,12 +431,14 @@ struct Tap: PhysicalDeviceCommand {
     }
 
     func reportOnDevice(_ receipt: PhysicalSemanticPressReceipt?) throws {
-        guard let receipt, let elementID else { return }
+        guard let receipt else { return }
         if selectedOutput.verbose {
             try CLIOutput.writeJSON(receipt)
-        } else {
-            let output = SemanticPressOutput(identifier: elementID, before: receipt.stateBefore,
-                after: receipt.stateAfter)
+        } else if receipt.outcome == "accepted" {
+            try DeviceState.emit(receipt, text: ["AXPress accepted for \(elementLabel ?? receipt.identifier)"])
+        } else if let before = receipt.stateBefore, let after = receipt.stateAfter {
+            let output = SemanticPressOutput(identifier: receipt.identifier, before: before,
+                after: after)
             try DeviceState.emit(output, text: [output.text])
         }
     }

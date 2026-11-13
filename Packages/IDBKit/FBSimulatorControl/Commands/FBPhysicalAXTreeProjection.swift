@@ -37,7 +37,7 @@ public enum FBPhysicalAXTreeProjection {
     public let objectID: UInt64
     public let path: [Int]
     public let frame: CGRect
-    public let value: Bool
+    public let value: Bool?
 
     public func matchesReadback(_ other: Self) -> Bool {
       identifier == other.identifier && pid == other.pid && path == other.path && frame == other.frame
@@ -96,6 +96,45 @@ public enum FBPhysicalAXTreeProjection {
       let target = PressTarget(identifier: identifier, pid: translation.pid, objectID: translation.objectID,
                                path: path, frame: frame, value: value)
       return PreparedPress(target: target, request: try liveRequest(for: request))
+    }
+  }
+
+  public static func prepareTVPress(archive: Data, entries: [Entry], identifier: String?, label: String?,
+                                    displayBounds: CGRect) throws -> PreparedPress {
+    try withTree(archive: archive, entries: entries, forward: nil) { root, token in
+      root.axSetBridgeDelegateToken(token)
+      var matches: [(AXPMacPlatformElement, [Int], Bool)] = []
+      func visit(_ element: FBAXPlatformElement, path: [Int], visible: Bool) throws {
+        try Task.checkCancellation()
+        element.axSetBridgeDelegateToken(token)
+        let visible = visible && !element.axIsHidden()
+        let matchesSelector = identifier.map { element.axIdentifier() == $0 }
+          ?? label.map { element.axLabel() == $0 } ?? false
+        if matchesSelector, let native = element as? AXPMacPlatformElement {
+          matches.append((native, path, visible))
+        }
+        for (index, child) in element.axChildren().enumerated() {
+          try visit(child, path: path + [index], visible: visible)
+        }
+      }
+      try visit(root, path: [], visible: true)
+      guard matches.count == 1 else {
+        throw ProjectionError.tvPressTarget("The Apple TV selector matched \(matches.count) elements; use one unique exact --label or --id.")
+      }
+      let (element, path, visible) = matches[0]
+      let frame = element.axFrame()
+      guard visible, element.axIsEnabled(), element.axActionNames().contains("AXPress"),
+            let translation = element.translation, translation.pid > 0, translation.objectID > 0,
+            [frame.minX, frame.minY, frame.width, frame.height].allSatisfy(\.isFinite),
+            frame.width > 0, frame.height > 0, displayBounds.contains(frame),
+            let request = AXPTranslatorRequest.request(withTranslation: translation) as? AXPTranslatorRequest else {
+        throw ProjectionError.tvPressTarget("Apple TV semantic press requires a visible, enabled element with AXPress, a valid native target and a frame fully on screen.")
+      }
+      request.requestType = 7
+      request.actionType = 5
+      request.clientType = 2
+      return PreparedPress(target: PressTarget(identifier: element.axIdentifier() ?? "", pid: translation.pid,
+        objectID: translation.objectID, path: path, frame: frame, value: nil), request: try liveRequest(for: request))
     }
   }
 
@@ -198,9 +237,12 @@ public enum FBPhysicalAXTreeProjection {
   private enum ProjectionError: LocalizedError {
     case invalidArchive
     case invalidPressTarget
+    case tvPressTarget(String)
 
     var errorDescription: String? {
       switch self {
+      case let .tvPressTarget(message):
+        message
       case .invalidArchive:
         "The physical accessibility tree could not be read by the platform translator."
       case .invalidPressTarget:

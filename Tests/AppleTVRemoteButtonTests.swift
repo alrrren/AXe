@@ -61,19 +61,19 @@ struct AppleTVRemoteButtonTests {
             GateCase(name: "touch", operation: .touch([], display: nil, allowPartial: false, deadlineUptime: nil),
                      accepted: [.phone]),
             // Requirement: B4 text entry, owner decision 2026-11-12. Keyboard input reaches an Apple TV as well.
-            // Touch, display, rotate and semanticPress stay phone-only.
+            // Touch, display and rotate stay phone-only.
             GateCase(name: "keys", operation: .keys([PhysicalKeyStep(code: 4, pressed: true)]),
                      accepted: [.appleTV, .phone]),
             GateCase(name: "rotate", operation: .rotate(.left, timeout: 1), accepted: [.phone]),
             // Requirement: B3a describe-ui on Apple TV, owner decision 2026-11-12.
             GateCase(name: "tree", operation: .tree(timeout: 1), accepted: [.appleTV, .phone]),
-            GateCase(name: "semanticPress", operation: .semanticPress(identifier: "switch"), accepted: [.phone]),
+            GateCase(name: "semanticPress", operation: .semanticPress(selector: .id("switch")), accepted: [.appleTV, .phone]),
         ]
         cases += remoteButtons.map { GateCase(name: "\($0)", operation: button($0), accepted: [.appleTV]) }
         return cases
     }()
 
-    // Requirement: Aleks's rule, no input other than remote buttons and keyboard keys reaches the Apple TV. A phone
+    // Requirement: owner-approved TV semantic press acceptance, 2026-11-13, alongside remote buttons and keyboard keys. A phone
     // or tablet has no remote, so the remote buttons are refused there. Home is the one button both accept.
     @Test(arguments: gateCases)
     private func deviceFamilyGate(_ gate: GateCase) {

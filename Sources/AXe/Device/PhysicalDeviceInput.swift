@@ -110,8 +110,8 @@ struct PhysicalDeviceInput: Sendable {
             roots: try JSONDecoder().decode([AccessibilityElement].self, from: json), display: display)
     }
 
-    func semanticPress(identifier: String) async throws -> PhysicalSemanticPressReceipt {
-        guard case let .semanticPress(receipt) = try await client.exchange(.semanticPress(identifier: identifier)) else {
+    func semanticPress(selector: PhysicalSemanticPressSelector) async throws -> PhysicalSemanticPressReceipt {
+        guard case let .semanticPress(receipt) = try await client.exchange(.semanticPress(selector: selector)) else {
             throw Self.badReply
         }
         return receipt
