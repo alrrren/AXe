@@ -2,6 +2,17 @@ import Darwin
 import Dispatch
 import Foundation
 
+enum PhysicalSemanticPressSelector: Codable, Sendable {
+    case id(String)
+    case label(String)
+
+    var value: String {
+        switch self {
+        case let .id(value), let .label(value): value
+        }
+    }
+}
+
 enum PhysicalDeviceBrokerOperation: Codable, Sendable {
     case display
     case keepAlive
@@ -10,7 +21,7 @@ enum PhysicalDeviceBrokerOperation: Codable, Sendable {
     case button(PhysicalDeviceButton, hold: Double, allowLock: Bool)
     case rotate(PhysicalRotationDirection, timeout: Double)
     case tree(timeout: Double)
-    case semanticPress(identifier: String)
+    case semanticPress(selector: PhysicalSemanticPressSelector)
 
     var sendsInput: Bool {
         switch self {
@@ -46,10 +57,11 @@ enum PhysicalDeviceBrokerOperation: Codable, Sendable {
             duration = hold
         case let .rotate(_, timeout), let .tree(timeout):
             duration = timeout
-        case let .semanticPress(identifier):
+        case let .semanticPress(selector):
+            let identifier = selector.value
             guard !identifier.isEmpty, identifier.utf8.count <= 4_096,
                   identifier == identifier.trimmingCharacters(in: .whitespacesAndNewlines) else {
-                throw CLIOutputFailure(code: "invalidArguments", message: "Supply one nonempty exact checkbox ID.")
+                throw CLIOutputFailure(code: "invalidArguments", message: "Supply one nonempty exact ID or label.")
             }
             duration = 0
         case .display, .keepAlive:
@@ -58,7 +70,7 @@ enum PhysicalDeviceBrokerOperation: Codable, Sendable {
         guard duration.isFinite, (0...60).contains(duration) else { throw Self.invalidOperation }
     }
 
-    /// What the device family accepts. An Apple TV takes remote buttons and keyboard input only, and a phone or tablet has no
+    /// What the device family accepts. An Apple TV takes remote buttons, keyboard input and semantic presses, and a phone or tablet has no
     /// remote buttons. The broker calls this before any HID connection or event.
     func requireSupported(onAppleTV: Bool) throws {
         switch (self, onAppleTV) {
@@ -72,11 +84,13 @@ enum PhysicalDeviceBrokerOperation: Codable, Sendable {
             guard !button.isRemoteOnly else {
                 throw AutomationTarget.unsupportedOnDevice("The \(button.rawValue) button is available on an Apple TV only.")
             }
-        case (.keys, true), (.tree, true):
+        case (.keys, true), (.tree, true), (.semanticPress, true):
             return
         case (_, true):
             throw AutomationTarget.unsupportedOnDevice(
-                "AXe sends only remote buttons and keyboard input to an Apple TV, and reads its accessibility tree. Use axe button, type, key, key-sequence, key-combo or describe-ui.")
+                "Apple TV supports remote buttons, keyboard input, semantic press and accessibility reads. Use axe button, type, key, key-sequence, key-combo, tap --semantic-press or describe-ui.")
+        case (.semanticPress(.label), false):
+            throw CLIOutputFailure(code: "invalidArguments", message: "Physical iPhone/iPad semantic press requires one exact --id.")
         case (_, false):
             return
         }
