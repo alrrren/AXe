@@ -8,11 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-
+- `axe serve --udid <UDID>` keeps one process open and runs one command per standard input line, answering each with the JSON line `axe --output json` prints. Setup happens once, and serve keeps the input broker running between commands, so reading the screen and tapping took about 176 ms instead of 290 ms on an iPhone 17 Pro simulator (146 ms with `--minimal-keys`). Based on the serve mode proposed in [#70](https://github.com/cameroncooke/AXe/pull/70) by [@alex-hall](https://github.com/alex-hall) and [@dphurley](https://github.com/dphurley).
+- `describe-ui --minimal-keys` reads only label, identifier, value, frame, role, role description, type and enabled state, about 30 ms faster on a Settings screen ([#70](https://github.com/cameroncooke/AXe/pull/70) by [@alex-hall](https://github.com/alex-hall)).
 - Added Siri Remote buttons for a paired Apple TV: `axe button menu|select|up|down|left|right|play-pause --udid <Apple TV UDID>`, and `button home`. Play-pause is confirmed on a real Apple TV. Other commands still refuse an Apple TV, and the remote buttons are refused on a simulator, iPhone and iPad with `unsupportedOnDevice`. See [Physical iPhone and iPad](README.md#physical-iphone-and-ipad).
 - Added keyboard input for a paired Apple TV: `axe type`, `key`, `key-sequence` and `key-combo` now accept an Apple TV UDID. Keyboard input is confirmed on a real Apple TV. Touches, swipes, display reads and rotation are still refused with `unsupportedOnDevice`.
 - Added `axe describe-ui --udid <Apple TV UDID>`, a read-only read of an Apple TV's accessibility tree. It sends no input and is confirmed on a real Apple TV, where each element includes `focused`, true on the one with focus; `describe-ui --point` is untested there. Touches, swipes, rotation and semantic presses are still refused on an Apple TV.
 - `axe describe-ui` on a physical device now includes `focused` on each element.
+
+### Changed
+- `axe --output json describe-ui` now takes as long as plain `describe-ui`, about 45 ms less on a Settings screen, with the same output.
+
+### Fixed
+- On the iPhone Duo with iOS 27.1, `hinge read`, `hinge set`, agent input and the plain screenshot no longer fail with "Motion sample reports invalid angle or velocity". That runtime reports no velocity with any hinge sample; AXe now reads it as 0 and still refuses a sample whose angle is invalid ([#87](https://github.com/cameroncooke/AXe/issues/87), reported by [@WingCH](https://github.com/WingCH)).
 
 ## [v2.0.0]
 
