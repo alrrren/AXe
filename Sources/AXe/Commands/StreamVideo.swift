@@ -94,10 +94,15 @@ struct StreamVideo: AsyncParsableCommand {
             guard screenID == nil, screenUUID == nil, expectedBoot == nil else {
                 throw AutomationTarget.unsupportedOnDevice("Physical streaming does not accept simulator display or boot options.")
             }
-            guard let device = try await AutomationTarget.physicalDeviceRecord(udid: simulatorUDID) else {
+            guard let device = try await AutomationTarget.physicalDeviceRecord(udid: simulatorUDID, allowingAppleTV: true) else {
                 throw CLIOutputFailure(code: "targetNotFound", message: "Run axe list-devices and choose a physical device UDID.")
             }
             if format == .h264 {
+                // Native H.264 uses the display service, which no Apple TV has been shown to offer.
+                guard !device.isAppleTV else {
+                    throw AutomationTarget.unsupportedOnDevice(
+                        "Native --format h264 is not supported on an Apple TV. Use mjpeg, raw, ffmpeg or bgra.")
+                }
                 try await PhysicalDeviceH264Stream.run(for: device)
             } else {
                 try await PhysicalDeviceMedia.stream(device: device, format: format, fps: fps, quality: quality, scale: scale)

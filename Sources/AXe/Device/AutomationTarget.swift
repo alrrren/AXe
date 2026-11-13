@@ -51,11 +51,11 @@ enum AutomationTarget {
                 message: "No physical device matches the hardware UDID. Run axe list-devices.")
         }
         // The input broker, video recording and streaming, and settings look the device up here, so this is the
-        // one place that keeps an Apple TV, which list-devices shows, from being driven. Only the broker passes
-        // `allowingAppleTV`, and it then refuses everything but remote buttons and keyboard input. doctor and screenshot use
-        // `resolve` instead.
+        // one place that keeps an Apple TV, which list-devices shows, from being driven. The broker passes
+        // `allowingAppleTV` and then refuses everything but remote buttons and keyboard input; record-video and
+        // stream-video pass it because they only read the screen. doctor and screenshot use `resolve` instead.
         if device.isAppleTV, !allowingAppleTV {
-            throw unsupportedOnDevice("AXe supports only list-devices, doctor, screenshot, describe-ui, axe button and keyboard input on an Apple TV.")
+            throw unsupportedOnDevice("AXe supports only list-devices, doctor, screenshot, record-video, stream-video, describe-ui, axe button and keyboard input on an Apple TV.")
         }
         return device
     }

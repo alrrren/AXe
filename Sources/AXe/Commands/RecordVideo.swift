@@ -82,7 +82,7 @@ struct RecordVideo: AsyncParsableCommand {
             guard !followActiveDisplay, screenID == nil, screenUUID == nil, expectedBoot == nil else {
                 throw AutomationTarget.unsupportedOnDevice("Physical recording does not accept simulator display, boot, or follow options.")
             }
-            guard let device = try await AutomationTarget.physicalDeviceRecord(udid: simulatorUDID) else {
+            guard let device = try await AutomationTarget.physicalDeviceRecord(udid: simulatorUDID, allowingAppleTV: true) else {
                 throw CLIOutputFailure(code: "targetNotFound", message: "Run axe list-devices and choose a physical device UDID.")
             }
             try await PhysicalDeviceMedia.record(device: device, output: output, fps: fps, quality: quality, scale: scale,
