@@ -4,7 +4,7 @@ How AXe drives a connected iPhone or iPad, what it supports and where it stops. 
 
 ## Rules
 
-- `list-devices`, `doctor` and `screenshot` also accept paired Apple TVs. `button` also works on one, for the Siri Remote buttons only: `home`, `menu`, `select`, `up`, `down`, `left`, `right` and `play-pause`. The keyboard commands `type`, `key`, `key-sequence` and `key-combo` also work on one. `describe-ui` reads an Apple TV's accessibility tree and sends no input; it is confirmed on a real Apple TV, and each element includes `focused`, true on the one with focus and following the Siri Remote focus, and `describe-ui --point` works there too. Every other command refuses an Apple TV with `unsupportedOnDevice`, as do `button lock` and `button siri`. The remote buttons are refused on a simulator, iPhone and iPad. The remote buttons, including Play/Pause, and keyboard input are confirmed on a real Apple TV. A screenshot of an Apple TV may render protected video playback as black.
+- `list-devices`, `doctor` and `screenshot` also accept paired Apple TVs. `button` also works on one, for the Siri Remote buttons only: `home`, `menu`, `select`, `up`, `down`, `left`, `right` and `play-pause`. The keyboard commands `type`, `key`, `key-sequence` and `key-combo` also work on one. `describe-ui` reads an Apple TV's accessibility tree and sends no input; it is confirmed on a real Apple TV, and each element includes `focused`, true on the one with focus and following the Siri Remote focus, and `describe-ui --point` works there too. `record-video` and `stream-video` with `mjpeg`, `raw`, `ffmpeg` or `bgra` also accept an Apple TV; they are not yet confirmed on a real one, and `stream-video --format h264` is refused there with `unsupportedOnDevice`. Every other command refuses an Apple TV with `unsupportedOnDevice`, as do `button lock` and `button siri`. The remote buttons are refused on a simulator, iPhone and iPad. The remote buttons, including Play/Pause, and keyboard input are confirmed on a real Apple TV. A screenshot of an Apple TV may render protected video playback as black.
 - Devices use the same commands, options and error codes as simulators. `--udid` decides the target: AXe looks the UDID up in the simulator set first, then in CoreDevice's device list, and `targetNotFound` names both.
 - AXe never pairs a device, enables Developer Mode, mounts a developer disk image or unlocks the device. `doctor` detects each of these and prints the fix. On an Apple TV, `doctor` reports the lock state as `notChecked`, which does not fail the verdict, because `devicectl` cannot read it.
 - AXe uses the connection that Xcode's CoreDevice manages. It does not create its own tunnel.
@@ -27,7 +27,7 @@ How AXe drives a connected iPhone or iPad, what it supports and where it stops. 
 | Touch, keyboard and buttons | `com.apple.coredevice.hid.indigo` |
 | `rotate` | `com.apple.coredevice.devicecontrol` |
 | Accessibility trees, point lookups, semantic press | `com.apple.accessibility.axAuditDaemon.remoteAXService` (DTX) |
-| Native H.264 (`stream-video --format h264`) | `com.apple.coredevice.displayservice` |
+| Native H.264 (`stream-video --format h264`; not on an Apple TV) | `com.apple.coredevice.displayservice` |
 | `settings` | `xcrun devicectl` |
 
 ## Supported and refused
