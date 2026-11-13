@@ -13,6 +13,7 @@ No UI target, so no `--agent`; app reads and input use the agent commands in SKI
 - [Video streaming](#video-streaming)
 - [Clipboard staging](#clipboard-staging)
 - [Gestures and drawing](#gestures-and-drawing)
+- [Apple TV semantic press](#apple-tv-semantic-press)
 - [Hardware buttons](#hardware-buttons)
 - [Simulator shutdown](#simulator-shutdown)
 - [Common keycodes](#common-keycodes)
@@ -112,6 +113,10 @@ axe gesture pinch -x 200 -y 400 --radius 60 --scale 0.5 --udid <UDID>  # zoom ou
 - Edge and corner presets (`swipe-from-left|right|top|bottom-edge`, `swipe-from-top-right-corner` for Control Centre) use the measured screen; a simulator without DTUHID assumes 390×844 unless given `--screen-width`/`--screen-height`.
 - `rotate`, `two-finger-tap`, `two-finger-hold`, `two-finger-swipe` take explicit points: `axe gesture --help`.
 - None returns a capture or proves the app recognised the gesture; capture again.
+
+## Apple TV semantic press
+
+`axe tap --semantic-press --label "Search" --udid "$TV_UDID"` presses one exact label on a physical Apple TV; `--id` works only when unique. Repeated IDs such as `AppCell` are refused before input. The target must be visible, enabled, advertise AXPress, have a valid native PID/objectID and fit fully on screen. AXe revalidates a fresh tree and sends once, without replay. Success means `outcome: "accepted"`: native error 0, Boolean true and the DTX acknowledgement for the exact outbound request ID. It does not verify a screen change. JSON includes `identifier`, `outcome`, `delivery: "nativeReplyAccepted"` and `readbackCount: 0`, without checkbox states. No coordinates, other selectors, styles, delays, polling, agent/selected mode or batches. Inspect the screen after uncertain delivery before any further action. iPhone/iPad semantic press still requires an exact checkbox ID and an observed Boolean value change.
 
 ## Hardware buttons
 
