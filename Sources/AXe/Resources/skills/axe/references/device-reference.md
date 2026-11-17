@@ -91,6 +91,7 @@ Failures carry one code: `targetNotFound`, `notBooted`, `noHinge`, `bootChanged`
 ## App input on the iPhone Duo
 
 - Use the agent commands. An agent capture binds the active screen; a fold, rotation or hinge change makes its refs stale, so capture again.
+- On one of the two screens, SpringBoard's accessibility tree does not list the Home-screen icons that are drawn there, so they are missing from the capture. Find them in `axe screenshot` and tap with `-x`/`-y` and the capture's `--snapshot-id`. Dock icons, widgets and the search button keep their refs.
 - Plain `tap`, `touch`, `swipe`, `drag` and `type` run on the Duo with logical points and measured pose checks but check no target or app: never use them to operate an app.
 - At most 100,000 movement steps on the Duo; larger paths reject before event allocation.
 
@@ -135,7 +136,7 @@ Keyboard (`type`, `key`, `key-sequence`, `key-combo`) with `--focus-id <exact-fi
 
 - First focus the field explicitly and inspect it: an enabled, visible, focused `TextField`.
 - Checked before every key down; key-up cleanup needs no focus.
-- Text: US keyboard mapping, at most 256 UTF-8 bytes. Sequences: at most 1024 events and 20 s requested delay, within a shared 8-second admission budget.
+- Text: US key positions unless `--layout <name>` names the device's keyboard layout (`British`, `German`); `--layout auto` is simulator-only. At most 256 UTF-8 bytes. Sequences: at most 1024 events and 20 s requested delay, within a shared 8-second admission budget.
 - Not atomic OS recipient control.
 
 Slider:
@@ -193,7 +194,7 @@ axe batch --udid <UDID> --input-mode selected \
 `type --stdin`:
 
 - Reads process stdin once at that step, before its keyboard request. Give steps with `--step` or `--file`, pipe the text, close the pipe.
-- 1–256 UTF-8 bytes, US keyboard mapping; bytes and newlines are not trimmed or truncated.
+- 1–256 UTF-8 bytes, US key positions or the named `--layout`; bytes and newlines are not trimmed or truncated.
 - The synchronous read waits for EOF with no deadline and cannot observe cancellation while blocked; cancellation is checked after the read and before send. Normal PID, focus and per-key checks apply.
 - Invalid or empty input stops later steps.
 - Batch-level `--stdin` consumes the stream first, so a nested `type --stdin` sees EOF and rejects empty text. A second stdin step also sees EOF after the first successful read; there is no separate text stream.

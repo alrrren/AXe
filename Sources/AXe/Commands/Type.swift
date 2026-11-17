@@ -5,14 +5,16 @@ import FBSimulatorControl
 
 struct Type: PhysicalDeviceCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Type text using the US keyboard layout.",
+        abstract: "Type text on the simulator's keyboard layout.",
         discussion: """
-        Pass the text as an argument, with --stdin or with --file. AXe sends key presses to the focused field; characters outside the US layout, such as é or £, fail before anything is typed. Physical devices and selected input take at most 256 UTF-8 bytes. With --agent, --focus taps the --ref field before typing.
+        Pass the text as an argument, with --stdin or with --file. AXe sends key presses to the focused field, choosing the keys from the simulator's own hardware keyboard layout, so German, French and other keyboards type what you pass. A character the layout has no key for, such as 日 on German, fails before anything is typed. An app keeps the layout it was launched with: after changing the simulator's keyboards, relaunch the app or name the layout with --layout. --layout us sends US key positions whatever the simulator is set to. On a physical device, which does not report the keyboard in use, --layout auto is unavailable: name the layout, or AXe sends US key positions. Physical devices and selected input take at most 256 UTF-8 bytes. With --agent, --focus taps the --ref field before typing.
 
         Examples:
           axe type 'Hello, world!' --udid <UDID>
           printf 'line one\\nline two' | axe type --stdin --udid <UDID>
           axe type --file message.txt --udid <UDID>
+          axe type 'Grüße an @alle' --udid <UDID>
+          axe type 'user@example.com' --layout us --udid <UDID>
         """
     )
     
@@ -36,8 +38,17 @@ struct Type: PhysicalDeviceCommand {
     @OptionGroup var selectedKeyboard: SelectedKeyboardOptions
     @OptionGroup var agentMode: AgentModeOptions
 
+    @Option(name: .customLong("layout"), help: "Hardware keyboard layout: auto (simulator default, read the simulator's keyboard settings), us (US key positions, physical device default), or a layout iOS ships, such as German, French or British.")
+    var layout: String?
+
+    /// A simulator reads its own layout unless one is named.
+    private var simulatorLayout: String { layout ?? TypingLayout.automatic }
+
     func validate() throws {
         try agentMode.validate()
+        if let layout, layout.isEmpty || layout.utf8.count > 64 {
+            throw ValidationError("--layout takes auto, us or a keyboard layout name.")
+        }
         if focusBeforeTyping {
             guard agentMode.enabled, agentMode.snapshotID != nil, agentMode.elementRef != nil,
                   selectedKeyboard.focusID == nil else {
@@ -72,10 +83,12 @@ struct Type: PhysicalDeviceCommand {
     func agentRequest(standardInput: FileHandle = .standardInput) throws -> SelectedHIDRequest {
         let input = try AgentModeCommandAdapter.readText(text, useStdin: useStdin,
             inputFile: inputFile, standardInput: standardInput)
-        return try AgentModeCommandAdapter.request(AgentModeRequest(kind: focusBeforeTyping ? .focusAndType : .typeText,
+        var request = AgentModeRequest(kind: focusBeforeTyping ? .focusAndType : .typeText,
             expectedPID: selectedKeyboard.expectedPID, snapshotID: agentMode.snapshotID, ref: agentMode.elementRef,
             selectorKind: selectedKeyboard.focusID == nil ? nil : .id,
-            selectorValue: selectedKeyboard.focusID, text: input), input: selectedInput)
+            selectorValue: selectedKeyboard.focusID, text: input)
+        request.layout = try typingLayout()
+        return try AgentModeCommandAdapter.request(request, input: selectedInput)
     }
 
     func selectedRequest(standardInput: FileHandle = .standardInput) throws -> SelectedHIDRequest {
@@ -89,37 +102,47 @@ struct Type: PhysicalDeviceCommand {
             input = try SelectedKeyboardOptions.readText(from: handle)
         default: throw ValidationError("Select one text input source.")
         }
-        return try selectedKeyboard.request(input: selectedInput, event: SelectedKeyboardRequest.textEvent(input))
+        return try selectedKeyboard.request(input: selectedInput, event: SelectedKeyboardRequest.textEvent(input, layout: typingLayout()))
     }
 
     func validateOnDevice(inBatch: Bool) throws {
         try selectedInput.refuseOnDevice(agent: agentMode.enabled,
             "Physical typing sends keys to the current focus without agent or selected display options.")
         // Literal text is checked here; text from standard input or a file is read only once, in `runOnDevice`.
-        if let text { _ = try Self.physicalKeySteps(for: text) }
+        // A named layout's data is found in `runOnDevice`, where its check also comes before any input.
+        if layout == TypingLayout.automatic { throw TypingLayout.deviceAutomatic }
+        guard let text else { return }
+        if layout == nil || layout == TypingLayout.fixedUS {
+            _ = try Self.physicalKeySteps(for: text)
+        } else {
+            try Self.requirePhysicalTextBounds(text)
+        }
     }
 
     func runOnDevice(_ input: PhysicalDeviceInput) async throws {
         let text = try AgentModeCommandAdapter.readText(text, useStdin: useStdin,
             inputFile: inputFile, standardInput: .standardInput)
-        try await input.keys(Self.physicalKeySteps(for: text))
+        try Self.requirePhysicalTextBounds(text)
+        let logger = AxeLogger()
+        let typing = try TypingLayout.resolve(layout, deviceVersion: input.osVersion) { logger.info().log($0) }
+        // Every character is planned before the first key is sent.
+        try await input.keys(Self.physicalKeySteps(for: text, layout: typing))
     }
 
-    static func physicalKeySteps(for text: String) throws -> [PhysicalKeyStep] {
+    static func requirePhysicalTextBounds(_ text: String) throws {
         guard !text.isEmpty, text.utf8.count <= SelectedKeyboardRequest.maximumTextBytes else {
             throw ValidationError("Physical typing requires 1...256 UTF-8 bytes.")
         }
-        return try text.flatMap { character -> [PhysicalKeyStep] in
-            let event = KeyEvent.keyCodeForString(String(character))
-            guard event.keyCode != 0 else {
-                throw TextToHIDEvents.TextConversionError.unsupportedCharacter(character)
-            }
-            let code = UInt64(event.keyCode)
-            let press = [PhysicalKeyStep(code: code, pressed: true), PhysicalKeyStep(code: code, pressed: false)]
-            if event.shift {
-                return [PhysicalKeyStep(code: 225, pressed: true)] + press + [PhysicalKeyStep(code: 225, pressed: false)]
-            }
-            return press
+    }
+
+    static func physicalKeySteps(for text: String, layout: TypingLayout = .us) throws -> [PhysicalKeyStep] {
+        try requirePhysicalTextBounds(text)
+        return try layout.keyStrokes(for: text).flatMap { stroke -> [PhysicalKeyStep] in
+            let modifiers: [UInt64] = (stroke.shift ? [225] : []) + (stroke.option ? [226] : [])
+            let code = UInt64(stroke.usage)
+            return modifiers.map { PhysicalKeyStep(code: $0, pressed: true) }
+                + [PhysicalKeyStep(code: code, pressed: true), PhysicalKeyStep(code: code, pressed: false)]
+                + modifiers.reversed().map { PhysicalKeyStep(code: $0, pressed: false) }
         }
     }
 
@@ -135,6 +158,14 @@ struct Type: PhysicalDeviceCommand {
             return
         }
         let logger = AxeLogger()
+        // Read the simulator's keyboard layout while the input session is set up, so that
+        // finding it adds no time to the command.
+        let layoutChoice = simulatorLayout, udid = simulatorUDID
+        let layoutLookup = Task.detached { () throws -> (TypingLayout, [String]) in
+            var notes: [String] = []
+            let typing = try TypingLayout.resolve(layoutChoice, simulatorUDID: udid) { notes.append($0) }
+            return (typing, notes)
+        }
         try await setup(logger: logger)
         
         try await performGlobalSetup(logger: logger)
@@ -175,33 +206,14 @@ struct Type: PhysicalDeviceCommand {
             throw ValidationError("Invalid input configuration.")
         }
         
-        // Validate text first
-        guard TextToHIDEvents.validateText(inputText) else {
-            // Find unsupported characters for detailed error message
-            let unsupportedChars = inputText.compactMap { char in
-                let keyEvent = KeyEvent.keyCodeForString(String(char))
-                return keyEvent.keyCode == 0 ? char : nil
-            }
-            let errorMessage = """
-                Unsupported characters found: \(unsupportedChars.map { "'\($0)'" }.joined(separator: ", "))
-                
-                Only US keyboard characters are supported via HID keycodes.
-                Supported: A-Z, a-z, 0-9, and symbols: !@#$%^&*()_+-={}[]|\\:";'<>?,./`~
-                """
-            logger.error().log(errorMessage)
-            throw TextToHIDEvents.TextConversionError.unsupportedCharacter(unsupportedChars.first!)
-        }
-        
-        // Convert text to HID events using the new utility
         let hidEvents: [FBSimulatorHIDEvent]
         do {
-            hidEvents = try TextToHIDEvents.convertTextToHIDEvents(inputText)
+            let (typing, notes) = try await layoutLookup.value
+            notes.forEach { logger.info().log($0) }
+            hidEvents = try typing.events(for: inputText)
             logger.info().log("Successfully converted text to \(hidEvents.count) HID events")
-        } catch let error as TextToHIDEvents.TextConversionError {
-            logger.error().log("Text conversion failed: \(error.localizedDescription)")
-            throw error
         } catch {
-            logger.error().log("Unexpected error during text conversion: \(error.localizedDescription)")
+            logger.error().log("Text conversion failed: \(error.localizedDescription)")
             throw error
         }
         
@@ -216,6 +228,13 @@ struct Type: PhysicalDeviceCommand {
         }
         
         logger.info().log("Text typing completed successfully")
+    }
+
+    // MARK: - Keyboard Layout
+
+    /// The layout --layout names on this simulator; `auto` reads its keyboard settings.
+    func typingLayout(note: (String) -> Void = { _ in }) throws -> TypingLayout {
+        try TypingLayout.resolve(simulatorLayout, simulatorUDID: simulatorUDID, note: note)
     }
 
     // MARK: - Input Methods
