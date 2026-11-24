@@ -19,6 +19,11 @@ struct AgentModeRequest: Codable, Sendable {
     /// The keyboard layout `text` is typed on. Nil is the fixed US table.
     var layout: TypingLayout? = nil
     var keyEvents: [SelectedKeyboardPrimitive]? = nil
+    /// Advanced: a focus read before every Nth key; nil is `SelectedKeyboardRequest.defaultFocusCheckInterval`.
+    var focusCheckInterval: Int? = nil
+    /// Set by focus-and-type on its type phase only: the field AXe just tapped may still be moving
+    /// as the keyboard scrolls it into place, so the first key accepts the same field at a new frame.
+    var fieldMayMove: Bool? = nil
     var direction: RuntimeSwipeDirection? = nil
     var distance: Double = 1
     var destination: SelectedAXPoint? = nil
@@ -35,9 +40,17 @@ struct AgentModeRequest: Codable, Sendable {
     var rowLimit: Int = 64
     var readReference: String? = nil
     var textQuery: AgentModeTextQuery? = nil
+    /// A capture that also reads hosted web pages and lists their controls as `w` refs.
+    var includeWebContent: Bool? = nil
+
+    /// A `w` ref names a hosted web control; only taps, typing and keys act on one.
+    var namesWebControl: Bool { ref.map(AgentWebControls.isReference) == true }
 
     func validate() throws {
         _ = try AgentModePIDPolicy.expectedPID(assertion: expectedPID, snapshot: nil)
+        if let includeWebContent, kind != .describe || !includeWebContent {
+            throw AgentModeFailure("invalidWebContent", "--web applies to describe-ui --agent only.")
+        }
         if kind == .focusAndType {
             guard snapshotID != nil, ref != nil, let text,
                   point == nil, selectorKind == nil, selectorValue == nil, tapSelector == nil,
@@ -177,9 +190,12 @@ struct AgentModeRequest: Codable, Sendable {
             throw AgentModeFailure("mixedPayload", "Drag destination and steps apply only to a reference drag.")
         }
         if let ref {
-            guard snapshotID != nil, ref.utf8.count <= 32, ref.first == "e",
+            guard snapshotID != nil, ref.utf8.count <= 32, ref.first == "e" || ref.first == "w",
                   let number = Int(ref.dropFirst()), number > 0 else {
-                throw AgentModeFailure("invalidReference", "A reference requires its immutable --snapshot-id and an eN name.")
+                throw AgentModeFailure("invalidReference", "A reference requires its immutable --snapshot-id and an eN or wN name.")
+            }
+            if namesWebControl, ![.tap, .typeText, .focusAndType, .keyPress, .keyCombo, .keySequence].contains(kind) {
+                throw AgentModeFailure("unsupportedReference", "A web control ref (wN) supports tap, type and keys only. Nothing was sent.")
             }
         }
         guard [point != nil, ref != nil, selectorValue != nil, tapSelector != nil].filter({ $0 }).count <= 1 else {
@@ -314,6 +330,9 @@ struct AgentModeFailure: Error, Codable, Sendable, LocalizedError {
     static let missingContext = AgentModeFailure("missingContext", "AXe could not read the simulator display, so nothing was sent. Run describe-ui --agent again; if it keeps failing, check that the simulator is booted and on screen.")
     /// The visible screen no longer matches the snapshot's table.
     static let screenChanged = AgentModeFailure("screenChanged", "The screen changed after this snapshot was taken, so nothing was sent. Use the snapshot ID and refs from the capture in this reply, or run describe-ui if there is none, then act again.")
+    /// Input that only DTUHID can send, such as a system-edge gesture, on a simulator without that
+    /// service. Xcode 26's CoreSimulator has none; other input falls back to Indigo there (#101).
+    static let touchServiceUnavailable = AgentModeFailure(CLIError.Code.inputUnavailable.rawValue, "This input needs the simulator's DTUHID touch service, which Xcode 26 does not provide, so nothing was sent. Act on the capture another way, or select Xcode 27.")
     /// The next step after a batch stops early: what stands, and how to plan the rest.
     static let batchRest = "Completed steps are in the receipt and were not undone. Plan the rest from the capture in this reply; do not resend the batch."
 }
@@ -359,6 +378,14 @@ struct AgentModeCapture: Codable, Sendable {
     var customActions: [String: [String]]? = nil
     var truncatedCustomActionRefs: [String]? = nil
     var scrollPreview: AgentModeScrollPreview? = nil
+    /// Present when the capture read hosted web pages: how many `w` rows it found, or why not.
+    var webContent: AgentModeWebContentState? = nil
+}
+
+/// What a capture's web read found.
+struct AgentModeWebContentState: Codable, Sendable {
+    let controls: Int
+    let failure: String?
 }
 
 struct AgentModeActionReceipt: Codable, Sendable {
@@ -460,6 +487,8 @@ struct AgentModeAdmission: Codable, Sendable {
     var selectorKind: SelectedAXRequest.SelectorKind? = nil
     var selectorValue: String? = nil
     var nativeTarget: SelectedNativeTarget? = nil
+    /// See `AgentModeRequest.fieldMayMove`.
+    var fieldMayMove: Bool? = nil
 
     func validateContext(_ observation: FBSimulatorHIDSessionObservation) throws {
         guard context == SelectedHIDContext(observation) else {
@@ -529,11 +558,11 @@ struct AgentModeTarget: Codable, Sendable {
         }
     }
 
-    func validate(_ node: FBSimulatorAXNode, allowingValueChange: Bool = false) throws {
+    func validate(_ node: FBSimulatorAXNode, allowingValueChange: Bool = false, allowingMove: Bool = false) throws {
         let fresh = try AgentModeTarget(node)
         try validateNativeIdentity(node)
         guard type == fresh.type, identifier == fresh.identifier, label == fresh.label, pid == fresh.pid,
-              frame == fresh.frame, allowingValueChange || value == fresh.value else {
+              allowingMove || frame == fresh.frame, allowingValueChange || value == fresh.value else {
             throw AgentModeFailure("targetChanged", "Your target changed or moved after this snapshot was taken, so nothing was sent. \(AgentModeFailure.actFromCapture)")
         }
     }

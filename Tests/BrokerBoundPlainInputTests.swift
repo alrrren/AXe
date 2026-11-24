@@ -42,7 +42,22 @@ struct BrokerBoundPlainInputTests {
         #expect(throws: SelectedHIDFailure.self) { try plain.validate() }
     }
 
-    @Test("The flag covers one complete contact or ordinary path, and nothing else")
+    @Test("A plain key or hardware button needs no measured screen when the broker binds it")
+    func keyAndButtonRequests() throws {
+        let key = try OrdinaryBrokerKeyboard(.shortKeyPress(4))
+        try request(.ordinaryKeyboard(key)).validate()
+        try request(.button(SelectedButtonRequest(kind: .home, duration: nil, expectedBoot: nil))).validate()
+        // Without the flag a key keeps its measured context and cannot ask the broker to bind a screen.
+        var unbound = request(.ordinaryKeyboard(key))
+        unbound.plainRoute = nil
+        #expect(throws: SelectedHIDFailure.self) { try unbound.validate() }
+        // A selected button's boot check is not part of the plain route.
+        #expect(throws: SelectedHIDFailure.self) {
+            try request(.button(SelectedButtonRequest(kind: .home, duration: nil, expectedBoot: "boot"))).validate()
+        }
+    }
+
+    @Test("The flag covers one complete contact, ordinary path, key or button, and nothing else")
     func refusedRequests() {
         let selectedPath = SelectedHIDPath(kind: .swipe, startX: 200, startY: 600, endX: 200, endY: 300, duration: 0.3, delta: 50)
         let touch = OrdinaryBrokerTouch(x: 1, y: 2, down: true, up: false, delay: nil)
@@ -50,7 +65,7 @@ struct BrokerBoundPlainInputTests {
             request(.contact([])),
             request(.path(selectedPath)),
             request(.ordinaryTouch(touch)),
-            request(.button(SelectedButtonRequest(kind: .home, duration: nil, expectedBoot: nil))),
+            request(.rotation(SelectedRotationRequest(direction: .right, expectedBootIdentity: "1:2:3", timeoutSeconds: 8))),
             request(.contact(tap), operation: .begin),
         ]
         for request in refused {
@@ -97,6 +112,22 @@ struct BrokerBoundPlainInputTests {
         #expect(OrdinaryBrokerInput.runtimeHasMeasuredRoute(majorVersion: 28))
     }
 
+    @Test("dtuhidd is started only for a booted iOS 27 rigid simulator that does not have it running")
+    func startsDTUHIDOnlyWhenMissing() {
+        func start(isDuo: Bool = false, major: Int = 27, metadata: Bool = true, running: Bool = false,
+                   delay: TimeInterval = 0) -> Bool {
+            OrdinaryBrokerInput.shouldStartDTUHID(isDuo: isDuo, runtimeMajorVersion: major,
+                hasProfileMetadata: metadata, isDTUHIDRunning: running, readinessDelay: delay)
+        }
+        #expect(start())
+        #expect(start(major: 28))
+        #expect(!start(running: true))
+        #expect(!start(major: 26))
+        #expect(!start(isDuo: true))
+        #expect(!start(metadata: false))
+        #expect(!start(delay: 4))
+    }
+
     @Test("A complete touch is one contact with its hold, and a tap keeps its style")
     func contacts() throws {
         let held = OrdinaryBrokerInput.touchPrimitives(x: 5, y: 6, hold: 0.4)
@@ -123,7 +154,9 @@ struct BrokerBoundPlainInputTests {
             try path.validate()
             let points = preset.coordinates(screenWidth: 402, screenHeight: 874, edgeInset: inset, distance: distance)
             #expect(try path.event(logicalSize: size) == .swipe(points.startX, yStart: points.startY,
-                xEnd: points.endX, yEnd: points.endY, delta: preset.defaultDelta, duration: preset.defaultDuration))
+                xEnd: points.endX, yEnd: points.endY, delta: SelectedHIDPath.fingerDelta(preset.defaultDelta,
+                    from: CGPoint(x: points.startX, y: points.startY), to: CGPoint(x: points.endX, y: points.endY),
+                    duration: preset.defaultDuration), duration: preset.defaultDuration))
         }
     }
 

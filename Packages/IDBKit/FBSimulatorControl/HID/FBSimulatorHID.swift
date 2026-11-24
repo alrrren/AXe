@@ -90,12 +90,34 @@ public final class FBSimulatorHID: CustomStringConvertible, @unchecked Sendable 
     return hid
   }
 
+  /// Starts the simulator's `dtuhidd`, which launchd runs only once something connects to it, and
+  /// returns once the guest service has answered a request that carries no input. The connection is
+  /// then closed and the daemon keeps running for the rest of the boot. Throws when the simulator has
+  /// no DTUHID service (Xcode 26) or the service does not answer within `timeout`.
+  public static func startDTUHIDService(for simulator: FBSimulator, timeout: TimeInterval) async throws {
+    let transport = try FBSimulatorDTUHIDTransport.dtuhid(for: simulator)
+    defer { transport.disconnect() }
+    try await transport.prepareConnection(timeout: timeout)
+  }
+
   /// Creates an explicitly targeted DTUHID connection using current measured display geometry.
   /// Existing event coordinates must be oriented logical display points. Refresh the connection
   /// after a display or orientation change; this context does not track runtime changes itself.
   public convenience init(for simulator: FBSimulator, displayContext: FBSimulatorHIDDisplayContext) throws {
     let transport = try FBSimulatorDTUHIDTransport.dtuhid(for: simulator, displayContext: displayContext)
     self.init(transport: transport, transportType: .dtuhid, purple: FBSimulatorPurpleHID(), simulator: simulator)
+  }
+
+  /// A connection aimed at one display, ready as `ready(for:)` makes the default one: its first
+  /// input is not sent before the guest service has reached it. Measured on an iPhone Duo with
+  /// iOS 27.2: the default connection's touches go to the outer screen even while the inner one is
+  /// lit, and the first tap on a fresh aimed connection that has not waited is lost.
+  public static func ready(for simulator: FBSimulator, displayContext: FBSimulatorHIDDisplayContext) async throws -> FBSimulatorHID {
+    let hid = try FBSimulatorHID(for: simulator, displayContext: displayContext)
+    if let dtuhid = hid.transport as? FBSimulatorDTUHIDTransport {
+      try await dtuhid.prepareConnection(timeout: connectionReadyTimeout)
+    }
+    return hid
   }
 
   private init(transport: FBSimulatorHIDTransport, transportType: FBSimulatorHIDTransportType, purple: FBSimulatorPurpleHID, simulator: FBSimulator) {

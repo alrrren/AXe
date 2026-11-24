@@ -1,0 +1,169 @@
+import Foundation
+import Testing
+@testable import AXe
+
+@Suite("Mirror: which of a viewer's touches have already been taken")
+struct MirrorTouchMemoryTests {
+    @Test("A down and an up are each taken once, however many copies arrive")
+    func discreteOnce() {
+        var memory = MirrorTouchMemory()
+        let down = memory.takeDiscrete(gesture: 1, down: true)
+        let downAgain = memory.takeDiscrete(gesture: 1, down: true)
+        let up = memory.takeDiscrete(gesture: 1, down: false)
+        let upAgain = memory.takeDiscrete(gesture: 1, down: false)
+        #expect(down)
+        #expect(!downAgain)
+        #expect(up)
+        #expect(!upAgain)
+    }
+
+    @Test("A move is taken once, from its own message or from a later one's history")
+    func moveOnce() {
+        var memory = MirrorTouchMemory()
+        let first = memory.takeMove(gesture: 3, sequence: 7)
+        let again = memory.takeMove(gesture: 3, sequence: 7)
+        let next = memory.takeMove(gesture: 3, sequence: 8)
+        let otherGesture = memory.takeMove(gesture: 4, sequence: 7)
+        #expect(first)
+        #expect(!again)
+        #expect(next)
+        #expect(otherGesture)
+    }
+
+    @Test("A viewer that connects again numbers its gestures from one, and they are all taken")
+    func newConnectionStartsClean() {
+        var memory = MirrorTouchMemory()
+        // One connection: 17 taps, and a drag.
+        for gesture in UInt32(1)...17 {
+            _ = memory.takeDiscrete(gesture: gesture, down: true)
+            _ = memory.takeDiscrete(gesture: gesture, down: false)
+        }
+        _ = memory.takeMove(gesture: 17, sequence: 1)
+
+        // Without forgetting, the next connection's first touches look like repeats.
+        var kept = memory
+        let droppedDown = !kept.takeDiscrete(gesture: 1, down: true)
+        let droppedMove = !kept.takeMove(gesture: 17, sequence: 1)
+        #expect(droppedDown)
+        #expect(droppedMove)
+
+        memory.forget()
+        var taken = 0
+        for gesture in UInt32(1)...17 {
+            if memory.takeDiscrete(gesture: gesture, down: true) { taken += 1 }
+            if memory.takeDiscrete(gesture: gesture, down: false) { taken += 1 }
+        }
+        let move = memory.takeMove(gesture: 17, sequence: 1)
+        #expect(taken == 34)
+        #expect(move)
+    }
+
+    @Test("Only the last 32 gestures are remembered")
+    func limit() {
+        var memory = MirrorTouchMemory()
+        for gesture in UInt32(1)...40 {
+            _ = memory.takeDiscrete(gesture: gesture, down: true)
+            _ = memory.takeDiscrete(gesture: gesture, down: false)
+        }
+        let old = memory.takeDiscrete(gesture: 8, down: true)       // fallen out of the memory
+        let recent = memory.takeDiscrete(gesture: 40, down: false)
+        #expect(old)
+        #expect(!recent)
+    }
+}
+
+#if AXE_MIRROR
+@Suite("Mirror touches on a turned screen")
+struct MirrorRotationTouchTests {
+    @Test("A touch on the upright picture lands where the turned simulator shows it")
+    func landscapeLeft() {
+        // Measured on an iPad simulator (820 x 1180 points) turned to landscape left: a tap at panel
+        // point (205, 236) arrived in the app at (944, 205) of its 1180 x 820 landscape screen.
+        let panel = MirrorInput.panelShare(x: 944.0 / 1180, y: 205.0 / 820, rotation: 90)
+        #expect(abs(panel.x - 205.0 / 820) < 0.0001)
+        #expect(abs(panel.y - 236.0 / 1180) < 0.0001)
+    }
+
+    @Test("Each turn and its opposite come back to the same point, and no turn leaves it alone")
+    func roundTrips() {
+        let point = (x: 0.3, y: 0.7)
+        #expect(MirrorInput.panelShare(x: point.x, y: point.y, rotation: 0) == point)
+        let right = MirrorInput.panelShare(x: point.x, y: point.y, rotation: 270)
+        let left = MirrorInput.panelShare(x: point.x, y: point.y, rotation: 90)
+        #expect(right.x != point.x || right.y != point.y)
+        // A quarter turn one way, then the other, is no turn.
+        let back = MirrorInput.panelShare(x: left.x, y: left.y, rotation: 270)
+        #expect(abs(back.x - point.x) < 0.0001 && abs(back.y - point.y) < 0.0001)
+        let half = MirrorInput.panelShare(x: point.x, y: point.y, rotation: 180)
+        #expect(abs(half.x - 0.7) < 0.0001 && abs(half.y - 0.3) < 0.0001)
+    }
+
+    private func touch(kind: UInt8, gesture: UInt32, sequence: UInt32, time: TimeInterval) -> MirrorTouch {
+        MirrorTouch(kind: kind, gesture: gesture, sequence: sequence, points: [CGPoint(x: 0.5, y: 0.5)], time: time)
+    }
+
+    @Test("Moves for a touch that never goes down do not pile up on the host")
+    func strangerCannotFillMemory() {
+        var waiting: [MirrorTouch] = [], samples: [MirrorTouch] = [], arrivals: [String] = []
+        var openAges: [UInt32: [TimeInterval]] = [:]
+        // What `MirrorInput.receive` keeps for each message, here for 100,000 of the worst kind:
+        // moves with no down, downs that never come due, and a new gesture number every time.
+        for index in 0..<100_000 {
+            let gesture = UInt32(1_000_000 - index)
+            samples.append(touch(kind: 4, gesture: 7, sequence: UInt32(index), time: Double(index)))
+            waiting.append(touch(kind: 1, gesture: gesture, sequence: 0, time: 1e9))
+            arrivals.append("line")
+            openAges[gesture, default: []].append(0.01)
+            openAges[7, default: []].append(0.01)
+            MirrorTouchLimits.bound(waiting: &waiting, samples: &samples, openAges: &openAges, arrivals: &arrivals, gesture: 7)
+        }
+        #expect(waiting.count <= MirrorTouchLimits.waiting)
+        #expect(samples.count <= MirrorTouchLimits.samples)
+        #expect(arrivals.count <= MirrorTouchLimits.arrivals)
+        #expect(openAges.count <= MirrorTouchLimits.openGestures && (openAges[7]?.count ?? 0) <= MirrorTouchLimits.agesPerGesture)
+        // The newest positions are the ones kept: they are what the replay reads.
+        #expect(samples.last?.sequence == 99_999)
+    }
+
+
+    @Test("A touch as the app builds it is the touch the host reads: one description of the message serves both")
+    func oneWireFormat() throws {
+        // A two-finger move, made at 100.25 on the viewer's clock, which runs 3.5 s behind the host's,
+        // carrying the two moves before it.
+        let points = [CGPoint(x: 0.25, y: 0.75), CGPoint(x: 0.5, y: 0.125)]
+        let earlier = [(points: [CGPoint(x: 0.24, y: 0.74), CGPoint(x: 0.49, y: 0.12)], time: 100.234),
+                       (points: [CGPoint(x: 0.23, y: 0.73), CGPoint(x: 0.48, y: 0.11)], time: 100.217)]
+        let sent = MirrorTouch.payload(kind: 4, gesture: 12, sequence: 9, points: points, time: 100.25, offset: 3.5, history: earlier)
+        let read = try #require(MirrorTouch(sent, received: 103.76))
+        #expect(read.kind == 4 && read.contacts == 2 && read.gesture == 12 && read.sequence == 9)
+        #expect(read.x1 == 0.25 && read.y1 == 0.75 && read.x2 == 0.5 && read.y2 == 0.125)
+        #expect(read.touchTime == 103.75 && read.received == 103.76)
+        let recovered = MirrorTouch.history(in: sent, received: 103.76)
+        #expect(recovered.map(\.sequence) == [8, 7] && recovered.allSatisfy { $0.recovered && $0.gesture == 12 })
+        #expect(abs(recovered[0].touchTime - 103.734) < 0.0001 && abs(recovered[1].x1 - 0.23) < 0.0001)
+        // The numbers both sides send by.
+        #expect([MirrorMessage.touch, MirrorMessage.touchMove, MirrorMessage.button, MirrorMessage.ping, MirrorMessage.pong] == [40, 41, 43, 10, 3])
+        #expect([MirrorMessage.configuration, MirrorMessage.frame, MirrorMessage.frameReport, MirrorMessage.keyframeRequest, MirrorMessage.viewerInfo,
+                 MirrorMessage.sessionInfo, MirrorMessage.profile] == [1, 2, 11, 12, 13, 23, 30])
+    }
+
+    @Test("A touch with a number that is not one is refused, and one from the future is brought back")
+    func hostileNumbers() throws {
+        func message(x: Float32, time: Double) -> Data {
+            var data = MirrorTouch.payload(kind: 4, gesture: 1, sequence: 9, points: [CGPoint(x: 0.25, y: 0.75)], time: time)
+            withUnsafeBytes(of: x) { data.replaceSubrange(10..<14, with: $0) }
+            return data
+        }
+        #expect(MirrorTouch(message(x: .nan, time: 10), received: 10) == nil)
+        #expect(MirrorTouch(message(x: .infinity, time: 10), received: 10) == nil)
+        #expect(MirrorTouch(message(x: 0.25, time: .nan), received: 10) == nil)
+        // Outside the picture is brought to its edge.
+        #expect(try #require(MirrorTouch(message(x: 7, time: 10), received: 10)).x1 == 1)
+        // A touch dated an hour ahead would never come due; it is played as if made now.
+        let ahead = try #require(MirrorTouch(message(x: 0.25, time: 3610), received: 10))
+        #expect(ahead.touchTime == 11 && ahead.x1 == 0.25 && ahead.y1 == 0.75)
+        let honest = try #require(MirrorTouch(message(x: 0.25, time: 9.96), received: 10))
+        #expect(honest.touchTime == 9.96)
+    }
+}
+#endif

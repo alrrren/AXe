@@ -7,7 +7,7 @@ struct Key: PhysicalDeviceCommand {
     static let configuration = CommandConfiguration(
         abstract: "Press one key by HID keycode.",
         discussion: """
-        Common keycodes: 40 Return, 41 Escape, 42 Backspace, 43 Tab, 44 Space, 4 to 29 the letters a to z. With --agent, pass the --snapshot-id and --ref of the focused TextField.
+        Common keycodes: 40 Return, 41 Escape, 42 Backspace, 43 Tab, 44 Space, 4 to 29 the letters a to z. With --agent, pass the --snapshot-id and --ref of the focused TextField, or of a web field (wN), which AXe taps first so the caret is at the end of its text.
 
         Examples:
           axe key 40 --udid <UDID>
@@ -32,6 +32,7 @@ struct Key: PhysicalDeviceCommand {
     func validate() throws {
         try agentMode.validate()
         if agentMode.enabled {
+            try selectedKeyboard.validateFocusCheckInterval()
             try AgentModeCommandAdapter.validateContext(input: selectedInput, expectedPID: selectedKeyboard.expectedPID)
             guard agentMode.elementRef != nil, selectedKeyboard.focusID == nil, duration == nil else {
                 throw ValidationError("Agent key requires --snapshot-id and --ref for an already focused TextField, with no --focus-id or --duration.")
@@ -59,7 +60,8 @@ struct Key: PhysicalDeviceCommand {
         let events = try KeyboardPrimitives.from(selectedKeyboardEvent())
         return try AgentModeCommandAdapter.request(AgentModeRequest(kind: .keyPress,
             expectedPID: selectedKeyboard.expectedPID, snapshotID: agentMode.snapshotID,
-            ref: agentMode.elementRef, keyEvents: events), input: selectedInput)
+            ref: agentMode.elementRef, keyEvents: events,
+            focusCheckInterval: selectedKeyboard.focusCheckInterval), input: selectedInput)
     }
 
     func validateOnDevice(inBatch: Bool) throws {

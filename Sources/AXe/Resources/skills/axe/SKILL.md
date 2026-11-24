@@ -1,6 +1,6 @@
 ---
 name: axe
-description: Official skill for the AXe CLI, which gives agents eyes and hands on iOS and tvOS apps. Sees and operates app UI, takes screenshots, records video and changes simulator settings on iOS Simulators and on physical iPhones, iPads and Apple TVs. Use when the target is any physical device, and always for a physical Apple TV, which no other tool drives. Also use it on a simulator when no Xcode device session is open. For the app you just built and ran from Xcode, use the device-interaction skill instead, because it runs inside Xcode's own session.
+description: Official skill for the AXe CLI, which gives agents eyes and hands on iOS and tvOS apps. Sees and operates app UI, including web pages in Safari and web views, takes screenshots, records video and changes simulator settings on iOS Simulators and on physical iPhones, iPads and Apple TVs. Use when the target is any physical device, and always for a physical Apple TV, which no other tool drives. Also use it on a simulator when no Xcode device session is open. For the app you just built and ran from Xcode, use the device-interaction skill instead, because it runs inside Xcode's own session. Also use it when the user wants to see or touch a simulator from their own iPhone or iPad, or to pair that device (axe mirror).
 ---
 
 # AXe
@@ -102,6 +102,21 @@ Also:
 - When verification must be read-only, use `describe-ui` and screenshots only, no taps.
 - For visual facts the accessibility tree lacks: `axe screenshot --udid <UDID> --output shot.png`, then open the PNG.
 
+## Web pages
+
+A web view, Safari or a Safari sheet shows a page as one area. Add `--web` to list its controls as `w` rows:
+
+```bash
+axe describe-ui --agent --web --view navigation --udid <UDID>
+```
+
+- Tap a `w` row like any ref. A pop-up button's options and search suggestions come back as `w` rows to tap.
+- Type only with `--focus`: `axe type 'ada@example.com' --agent --focus --udid <UDID> --snapshot-id <SNAPSHOT_ID> --ref w2`.
+- `key`, `key-combo` and `key-sequence` on a `w` field tap it first, leaving the caret at the end of a one-line field. Clear one with a single `key-sequence` of one 42 (Backspace) per character of its value; check other fields in a screenshot first.
+- Only controls a tap would reach now are listed. Read page text from a screenshot. Tap click-only text and a Safari sheet's Close button by coordinates.
+- Scroll with the web view's own `swipe` row (an `e` ref). Actions on a `--web` snapshot keep returning `w` rows.
+- Batches do not take `w` refs. Details: [agent-reference.md](references/agent-reference.md#web-pages).
+
 ## Coordinates (fallback)
 
 For a visible control with no usable ref or selector, such as a custom-drawn view:
@@ -139,3 +154,4 @@ Agent mode covers app reads and input on every simulator, including the iPhone D
 | run a command with no UI target (`list-simulators`, `displays`, `screenshot`, `button`, `shutdown`), a gesture with no agent form, `describe-ui --minimal-keys` or `serve` for scripts | [cli-quick-reference.md](references/cli-quick-reference.md) |
 | record or stream video | [recording-reference.md](references/recording-reference.md) |
 | stage text on the clipboard | [clipboard-reference.md](references/clipboard-reference.md) |
+| show a simulator live on the user's iPhone or iPad, or pair that device (`axe mirror`, long-running, prints JSON events) | [mirror-reference.md](references/mirror-reference.md) |

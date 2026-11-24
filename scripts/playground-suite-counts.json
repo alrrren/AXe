@@ -32,7 +32,6 @@
   "PlaygroundDuoSelectedKeyInterruptionTests": 2,
   "PlaygroundDuoSelectedBatchKeyboardTests": 10,
   "PlaygroundDuoHeldModifierTests": 2,
-  "PlaygroundDuoTypingInterruptionTests": 1,
   "PlaygroundDuoHardwareTests": 9,
   "PlaygroundDuoHardwareInterruptionTests": 6,
   "PlaygroundSimulatorLifecycleTests": 1,
@@ -82,5 +81,6 @@
   "PlaygroundOrdinaryBatchTests": 11,
   "PlaygroundOrdinaryTextTests": 9,
   "PlaygroundOrdinaryButtonTests": 4,
-  "PlaygroundOrdinaryMediaTests": 6
+  "PlaygroundOrdinaryMediaTests": 6,
+  "PlaygroundAgentWebTests": 2
 }

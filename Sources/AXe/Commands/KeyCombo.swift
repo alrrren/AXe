@@ -7,7 +7,7 @@ struct KeyCombo: PhysicalDeviceCommand {
     static let configuration = CommandConfiguration(
         abstract: "Press a key while holding modifier keys.",
         discussion: """
-        AXe presses the modifiers in order, presses and releases the key, then releases the modifiers in reverse order. Modifiers: 224 Control, 225 Shift, 226 Option, 227 Command, and 228 to 231 for the right-hand keys; physical devices and selected input accept only these. With --agent, pass the --snapshot-id and --ref of the focused TextField.
+        AXe presses the modifiers in order, presses and releases the key, then releases the modifiers in reverse order. Modifiers: 224 Control, 225 Shift, 226 Option, 227 Command, and 228 to 231 for the right-hand keys; physical devices and selected input accept only these. With --agent, pass the --snapshot-id and --ref of the focused TextField, or of a web field (wN), which AXe taps first so the caret is at the end of its text.
 
         Examples:
           axe key-combo --modifiers 227 --key 4 --udid <UDID>        # Cmd+A
@@ -32,6 +32,7 @@ struct KeyCombo: PhysicalDeviceCommand {
     func validate() throws {
         try agentMode.validate()
         if agentMode.enabled {
+            try selectedKeyboard.validateFocusCheckInterval()
             try AgentModeCommandAdapter.validateContext(input: selectedInput, expectedPID: selectedKeyboard.expectedPID)
             guard agentMode.elementRef != nil, selectedKeyboard.focusID == nil else {
                 throw ValidationError("Agent key-combo requires --snapshot-id and --ref for an already focused TextField, with no --focus-id.")
@@ -64,7 +65,8 @@ struct KeyCombo: PhysicalDeviceCommand {
         let events = try KeyboardPrimitives.from(selectedKeyboardEvent())
         return try AgentModeCommandAdapter.request(AgentModeRequest(kind: .keyCombo,
             expectedPID: selectedKeyboard.expectedPID, snapshotID: agentMode.snapshotID,
-            ref: agentMode.elementRef, keyEvents: events), input: selectedInput)
+            ref: agentMode.elementRef, keyEvents: events,
+            focusCheckInterval: selectedKeyboard.focusCheckInterval), input: selectedInput)
     }
 
     func validateOnDevice(inBatch: Bool) throws {

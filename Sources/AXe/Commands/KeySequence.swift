@@ -7,7 +7,7 @@ struct KeySequence: PhysicalDeviceCommand {
     static let configuration = CommandConfiguration(
         abstract: "Press several keys in order by HID keycode.",
         discussion: """
-        Each key is pressed and released before the next. With --agent, pass the --snapshot-id and --ref of the focused TextField.
+        Each key is pressed and released before the next. With --agent, pass the --snapshot-id and --ref of the focused TextField, or of a web field (wN), which AXe taps first so the caret is at the end of its text.
 
         Examples:
           axe key-sequence --keycodes 11,8,15,15,18 --udid <UDID>    # hello
@@ -32,6 +32,7 @@ struct KeySequence: PhysicalDeviceCommand {
     func validate() throws {
         try agentMode.validate()
         if agentMode.enabled {
+            try selectedKeyboard.validateFocusCheckInterval()
             try AgentModeCommandAdapter.validateContext(input: selectedInput, expectedPID: selectedKeyboard.expectedPID)
             guard agentMode.elementRef != nil, selectedKeyboard.focusID == nil else {
                 throw ValidationError("Agent key-sequence requires --snapshot-id and --ref for an already focused TextField, with no --focus-id.")
@@ -79,7 +80,8 @@ struct KeySequence: PhysicalDeviceCommand {
         let events = try KeyboardPrimitives.from(selectedKeyboardEvent())
         return try AgentModeCommandAdapter.request(AgentModeRequest(kind: .keySequence,
             expectedPID: selectedKeyboard.expectedPID, snapshotID: agentMode.snapshotID,
-            ref: agentMode.elementRef, keyEvents: events), input: selectedInput)
+            ref: agentMode.elementRef, keyEvents: events,
+            focusCheckInterval: selectedKeyboard.focusCheckInterval), input: selectedInput)
     }
 
     func validateOnDevice(inBatch: Bool) throws {

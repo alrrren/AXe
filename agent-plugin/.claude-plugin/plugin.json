@@ -2,14 +2,14 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "axe",
   "displayName": "AXe",
-  "version": "2.0.0",
+  "version": "2.1.1",
   "description": "Agent-ready AXe CLI guidance for iOS Simulator automation",
   "author": {
     "name": "Cameron Cooke"
   },
   "homepage": "https://axe-cli.com/docs",
   "repository": "https://github.com/cameroncooke/AXe",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "keywords": [
     "ios",
     "simulator",

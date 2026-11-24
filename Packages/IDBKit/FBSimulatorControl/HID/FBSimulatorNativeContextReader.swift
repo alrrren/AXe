@@ -6,6 +6,8 @@ import Darwin
 public enum FBSimulatorContextError: Error, Sendable {
   case unavailable(String)
   case changedDuringRead
+  /// The device type declares no built-in touch display, as on Apple TV. No read can succeed.
+  case unsupportedProfile
 }
 
 public enum FBSimulatorHingeCapability: String, Codable, Sendable {
@@ -128,7 +130,7 @@ public actor FBSimulatorNativeContextReader: FBSimulatorHIDFreshnessProvider, FB
     }
     // One in-process CoreDevice read supplies guest CAD identity, geometry, rotation and the
     // active flag, within the same host catalogue, hinge and boot bounds.
-    let info = try await FBSimulatorDisplayInfoReader.read(for: simulator)
+    let info = try await FBSimulatorDisplayInfoReader.read(for: simulator, hostCatalog: beforeCatalog)
     let guestDisplays = info.rows.filter(\.integrated).map {
       GuestDisplay(displayId: $0.displayID, uniqueId: $0.uniqueID.uuidString,
         currentOrientation: $0.currentOrientation.rawValue,
@@ -193,9 +195,30 @@ public actor FBSimulatorNativeContextReader: FBSimulatorHIDFreshnessProvider, FB
           let url = bundle.url(forResource: "capabilities", withExtension: "plist") else {
       throw FBSimulatorContextError.unavailable("Device type metadata is unavailable")
     }
-    let profile = try PropertyListDecoder().decode(CapabilityFile.self, from: Data(contentsOf: url))
-    let ids = profile.capabilities.displays.filter { $0.displayType == "integrated" && $0.hasDigitizer }.map(\.screenID).sorted()
+    let ids = try integratedDigitizerIDs(profile: Data(contentsOf: url), productFamilyID: type.productFamilyID)
     return classifyCapability(identifier: identifier, model: model, version: version, integratedDigitizerIDs: ids)
+  }
+
+  /// The screen IDs of the built-in touch displays a device type's capabilities.plist declares.
+  /// A device type installed with Xcode 26 lists no displays. Every such iPhone or iPad has one
+  /// built-in display, the legacy one; any other product family has none AXe can drive.
+  static func integratedDigitizerIDs(profile: Data, productFamilyID: Int32) throws -> [UInt32] {
+    let file = try PropertyListDecoder().decode(CapabilityFile.self, from: profile)
+    guard let displays = file.capabilities?.displays else {
+      return FBSimulatorLegacyDisplay.productFamilyIDs.contains(productFamilyID) ? [FBSimulatorLegacyDisplay.screenID] : []
+    }
+    return displays.filter { $0.displayType == "integrated" && $0.hasDigitizer }.map(\.screenID).sorted()
+  }
+
+  /// Throws `unsupportedProfile` when the device type declares no built-in touch display. Missing
+  /// or unreadable profile metadata is not proof either way, so it passes.
+  public static func requireTouchDisplay(for simulator: FBSimulator) throws {
+    guard let capability = try? capability(for: simulator) else { return }
+    try requireTouchDisplay(capability.integratedDigitizerIDs)
+  }
+
+  static func requireTouchDisplay(_ profileIDs: [UInt32]) throws {
+    guard !profileIDs.isEmpty else { throw FBSimulatorContextError.unsupportedProfile }
   }
 
   /// Classifies by the device type's declared built-in touch displays, not by profile version or
@@ -225,7 +248,8 @@ public actor FBSimulatorNativeContextReader: FBSimulatorHIDFreshnessProvider, FB
   // The device profile defines the integrated set. Virtual CAD displays are not classified by
   // names or guessed raw enums. The guest display report independently validates its full set.
   static func hostCatalog(_ values: [FBSimulatorDisplayInfo], profileIDs: [UInt32]) throws -> [FBSimulatorDisplayInfo] {
-    guard !profileIDs.isEmpty, Set(profileIDs).count == profileIDs.count,
+    try requireTouchDisplay(profileIDs)
+    guard Set(profileIDs).count == profileIDs.count,
           Set(values.map(\.screenID)).count == values.count else {
       throw FBSimulatorContextError.unavailable("Invalid profile IDs or duplicate host screen IDs")
     }
@@ -311,8 +335,8 @@ public actor FBSimulatorNativeContextReader: FBSimulatorHIDFreshnessProvider, FB
   }
 
   private struct CapabilityFile: Decodable {
-    let capabilities: Capabilities
-    struct Capabilities: Decodable { let displays: [Display] }
+    let capabilities: Capabilities?
+    struct Capabilities: Decodable { let displays: [Display]? }
     struct Display: Decodable { let displayType: String; let hasDigitizer: Bool; let screenID: UInt32 }
   }
   /// One integrated row of the guest display report, joined against the host catalogue.

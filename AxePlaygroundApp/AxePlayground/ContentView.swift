@@ -48,7 +48,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private func destinationView(for screen: String) -> some View {
-        switch screen {
+        switch DemoMode.allows(screen) ? screen : "" {
         // Touch & Gestures
         case "tap-test":
             TapTestView()
@@ -118,7 +118,9 @@ struct ContentView: View {
             KeyPressView()
         case "key-sequence":
             KeySequenceView()
-            
+        case "web-sign-in":
+            WebSignInView()
+
         // Hardware
         case "button-test":
             ButtonTestView()
@@ -137,6 +139,11 @@ struct MainMenuView: View {
     @Binding var showSwipeTestModal: Bool
     @Binding var showMediaPattern: Bool
     
+    /// The menu, without the screens a demo's visitor may not open and the sections that leaves empty.
+    private var shownSections: [(String, [(String, String, String)])] {
+        menuSections.map { ($0.0, $0.1.filter { DemoMode.allows($0.0) }) }.filter { !$0.1.isEmpty }
+    }
+
     private let menuSections: [(String, [(String, String, String)])] = [
         ("Touch & Gestures", [
             ("tap-test", "Tap Test", "Displays coordinates of CLI taps"),
@@ -148,8 +155,8 @@ struct MainMenuView: View {
             ("media-pattern", "Capture Markers", "Upright colour markers for captures and movies"),
             ("inset-window", "Smaller Window", "Controls in a real window with a screen offset"),
             ("swipe-test", "Swipe Test", "Shows CLI swipe paths"),
-            ("gesture-presets", "Gesture Presets", "Multi-touch gesture display"),
-            ("drawing", "Drawing", "Records drawn strokes as screen-space paths"),
+            ("gesture-presets", "Gesture Presets", "Spin, pinch and twist a cube with real fingers"),
+            ("drawing", "Drawing", "Draws every finger; records the first as a screen-space path"),
             ("zoom", "Zoom", "Pinch to zoom a scroll view in and out"),
             ("sketch", "Sketch", "PencilKit canvas with the system tool picker"),
             ("landscape-coordinate-test", "Landscape Coordinates", "Verifies orientation-aware taps"),
@@ -159,7 +166,8 @@ struct MainMenuView: View {
         ("Input & Text", [
             ("text-input", "Text Input", "Text typed by CLI commands"),
             ("key-press", "Key Press", "Detects CLI key events"),
-            ("key-sequence", "Key Sequence", "Detects CLI key sequences")
+            ("key-sequence", "Key Sequence", "Detects CLI key sequences"),
+            ("web-sign-in", "Web Sign In", "Sign-in page in a web view")
         ]),
         ("Hardware", [
             ("button-test", "Button Test", "Hardware button press detection")
@@ -184,7 +192,7 @@ struct MainMenuView: View {
     
     var body: some View {
         List {            
-            ForEach(menuSections, id: \.0) { section in
+            ForEach(shownSections, id: \.0) { section in
                 Section(section.0) {
                     ForEach(section.1, id: \.0) { item in
                         if item.0 == "swipe-test" || item.0 == "media-pattern" {
